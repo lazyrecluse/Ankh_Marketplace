@@ -69,11 +69,12 @@
         .a_m_cur_cart {
             position: absolute;
             right: 100px;
-            width: 204px;
+            width: auto;
             height: 40px;
             margin-top: 23px;
             display: flex;
             justify-content: flex-end;
+            align-items: center;
 
             .a_m_c_c_cur {
                 width: 38px;
@@ -131,6 +132,98 @@
                 img {
                     width: 20px;
                     height: 20px;
+                }
+            }
+
+            .a_m_profile_dropdown_container {
+                position: relative;
+                display: inline-block;
+
+                .profile_toggle_btn {
+                    background: none;
+                    border: 1px solid #1d1f22;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    cursor: pointer;
+                    outline: none;
+                    margin-left: 20px;
+
+                    &:hover {
+                        background-color: #f1f2f3;
+                    }
+                }
+
+                .profile_dropdown_menu {
+                    position: absolute;
+                    right: 0;
+                    top: 38px;
+                    background-color: white;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    border-radius: 4px;
+                    padding: 12px;
+                    min-width: 180px;
+                    z-index: 100;
+                    text-align: left;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    border: 1px solid #e0e0e0;
+
+                    .profile_email {
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #1d1f22;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+
+                    .profile_role {
+                        font-size: 11px;
+                        color: #7d8084;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+
+                    .profile_divider {
+                        height: 1px;
+                        background-color: #e2e2e2;
+                        margin: 4px 0;
+                    }
+
+                    .profile_menu_btn {
+                        background: none;
+                        border: none;
+                        text-align: left;
+                        padding: 6px 0;
+                        font-size: 13px;
+                        cursor: pointer;
+                        color: #1d1f22;
+                        width: 100%;
+
+                        &:hover {
+                            color: var(--primaryColor);
+                        }
+                    }
+
+                    .profile_logout_btn {
+                        background: none;
+                        border: none;
+                        text-align: left;
+                        padding: 6px 0;
+                        font-size: 13px;
+                        cursor: pointer;
+                        color: #d32f2f;
+                        width: 100%;
+                        font-weight: 600;
+
+                        &:hover {
+                            opacity: 0.8;
+                        }
+                    }
                 }
             }
         }

@@ -3,6 +3,7 @@ import './ProductCard.scss';
 import CartIcon from '../../Images/CartWhite.svg';
 import { withRouter } from 'react-router-dom';
 import { connect } from 'react-redux';
+import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
 
 class ProductCard extends Component {
 
@@ -22,11 +23,15 @@ class ProductCard extends Component {
     }
 
     handlePriceBasedOnCurr = () => {
-        if (this.props.product_info?.prices.length > 0) {
-            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol;
+        if (this.props.product_info?.prices?.length > 0) {
+            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || "$";
             const currency_obj = this.props.product_info?.prices.filter(item => item?.currency?.symbol === current_currency_symbol);
-            return currency_obj[0]?.amount === undefined ? '' : currency_obj[0]?.amount;
+            const amt = currency_obj[0]?.amount;
+            if (amt !== undefined && amt !== null) return amt;
+            const firstPrice = this.props.product_info?.prices[0]?.amount;
+            return firstPrice !== undefined ? firstPrice : '';
         }
+        return '';
     }
 
     AddtoCart = () => {
@@ -138,9 +143,9 @@ class ProductCard extends Component {
                         alt='add'
                     />
                 </div>
-                {this.props.product_info?.gallery[0].includes("http") && this.props.product_info?.gallery[0].length > 30 ?
+                {this.props.product_info?.gallery[0] && (this.props.product_info?.gallery[0].includes("http") || this.props.product_info?.gallery[0].startsWith("/")) ?
                     <img
-                        src={this.props.product_info?.gallery[0]}
+                        src={this.props.product_info?.gallery[0].startsWith('/') ? back_end_endpoint() + this.props.product_info?.gallery[0] : this.props.product_info?.gallery[0]}
                         alt='product'
                         className='pc_m_img'
                         id={this.props.product_info?.inStock ? '' : 'pc_m_img'}

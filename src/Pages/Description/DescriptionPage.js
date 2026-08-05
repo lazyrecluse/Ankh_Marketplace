@@ -6,7 +6,6 @@ import parse from "html-react-parser";
 import styled from 'styled-components';
 import Alert from '../../Components/Alert/Alert';
 import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
-import { GET_PRODUCT_BY_ID } from '../../GraphQL/Queries';
 
 class DescriptionPage extends Component {
 
@@ -34,33 +33,22 @@ class DescriptionPage extends Component {
     }
 
     getdata = async () => {
-        await fetch(back_end_endpoint(), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "operationName": GET_PRODUCT_BY_ID({ ProductID: this.props.match?.params?.id }).operationName,
-                "query": GET_PRODUCT_BY_ID({ ProductID: this.props.match?.params?.id }).query,
-                "variables": {}
-            })
-        })
+        await fetch(back_end_endpoint() + `/api/products/${this.props.match?.params?.id}`)
             .catch(error => {
                 console.error(error);
             })
             .then(async (res) => {
                 const json_data = await res.json();
-                const raw_data = json_data?.data?.product;
-                if (raw_data?.attributes?.length > 0) {
-                    for (let i = 0; i < raw_data?.attributes?.length; i++) {
-                        const a_id = raw_data?.attributes[i]?.id;
-                        const a_val = raw_data?.attributes[i]?.items[0]?.value;
+                if (json_data?.attributes?.length > 0) {
+                    for (let i = 0; i < json_data?.attributes?.length; i++) {
+                        const a_id = json_data?.attributes[i]?.id;
+                        const a_val = json_data?.attributes[i]?.items[0]?.value;
                         let prev_state = this.state.productAttribs;
                         prev_state[a_id] = a_val;
                         this.setState({ productAttribs: { ...prev_state } });
                     }
                 }
-                this.props.SetCurrentProduct(raw_data);
+                this.props.SetCurrentProduct(json_data);
             })
     }
 
@@ -72,10 +60,14 @@ class DescriptionPage extends Component {
 
     handlePriceBasedOnCurr = () => {
         if (this.props.CurrentProduct?.prices?.length > 0) {
-            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol;
+            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || "$";
             const currency_obj = this.props.CurrentProduct?.prices?.filter(item => item?.currency?.symbol === current_currency_symbol);
-            return currency_obj[0]?.amount === undefined ? '' : currency_obj[0]?.amount;
+            const amt = currency_obj[0]?.amount;
+            if (amt !== undefined && amt !== null) return amt;
+            const firstPrice = this.props.CurrentProduct?.prices[0]?.amount;
+            return firstPrice !== undefined ? firstPrice : '';
         }
+        return '';
     }
 
     AddtoCart = () => {

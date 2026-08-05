@@ -8,6 +8,11 @@ import DescriptionPage from '../Pages/Description/DescriptionPage';
 import CartPage from '../Pages/Cart/CartPage';
 import CheckoutPage from '../Pages/Checkout/CheckoutPage';
 import MissingPage from '../Pages/Missing/MissingPage';
+import AuthPage from '../Pages/Auth/AuthPage';
+import BuyerOnboarding from '../Pages/Onboarding/BuyerOnboarding';
+import SupplierOnboarding from '../Pages/Onboarding/SupplierOnboarding';
+import BuyerDashboard from '../Pages/Dashboard/BuyerDashboard';
+import SupplierDashboard from '../Pages/Dashboard/SupplierDashboard';
 
 class App extends Component {
   constructor(props) {
@@ -48,13 +53,14 @@ class App extends Component {
   }
 
   total_cart_prices = () => {
-    const current_currency = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol;
+    const current_currency = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || "$";
     if (this.props.UserCarts?.length > 0) {
       let temp_total_price = 0;
       for (let i = 0; i < this.props.UserCarts?.length; i++) {
-        const quantity = parseInt(this.props.UserCarts[i]?.quantity);
-        const price_obj = this.props.UserCarts[i]?.prices?.filter(item => item?.currency?.symbol === current_currency)
-        const price = parseFloat(price_obj[0]?.amount);
+        const quantity = parseInt(this.props.UserCarts[i]?.quantity) || 1;
+        const price_obj = this.props.UserCarts[i]?.prices?.filter(item => item?.currency?.symbol === current_currency);
+        const price_val = price_obj?.[0]?.amount !== undefined ? price_obj[0].amount : (this.props.UserCarts[i]?.prices?.[0]?.amount || 0);
+        const price = parseFloat(price_val);
         temp_total_price += parseFloat(price * quantity);
       }
       const stringify_total_price = temp_total_price.toString();
@@ -116,6 +122,24 @@ class App extends Component {
               <CheckoutPage
                 handle_CloseCartOrCurr={this.handle_CloseCartOrCurr}
               />
+            </Route>
+            <Route exact path="/login/buyer">
+              <AuthPage buyerMode={true} />
+            </Route>
+            <Route exact path="/login">
+              <AuthPage />
+            </Route>
+            <Route path="/onboarding/buyer">
+              <BuyerOnboarding />
+            </Route>
+            <Route path="/onboarding/supplier">
+              <SupplierOnboarding />
+            </Route>
+            <Route path="/buyer/dashboard">
+              <BuyerDashboard />
+            </Route>
+            <Route path="/supplier/dashboard">
+              <SupplierDashboard />
             </Route>
             <Route path="*">
               <MissingPage

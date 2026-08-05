@@ -22,3 +22,26 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+.db-journal
+*.db
+.log
+backend/app/static/uploads/
+ ┃
+# Package managers, lockfiles, and JS runtimes
+node_modules/
+pnpm
+.pnpm-store/
+
+#agent chatter
+.agents/
+ORIGINAL_REQUEST.md
+PROJECT.md
+TEST_INFRA.md
+TEST_READY.md
+
+#python
+*.pyc
+
+#pdf
+*.pdf

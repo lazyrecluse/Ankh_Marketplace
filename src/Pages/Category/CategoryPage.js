@@ -3,7 +3,6 @@ import './CategoryPage.scss';
 import ArrowLeftBlack from '../../Images/ArrowLeftBlack.png';
 import ProductCard from '../../Components/ProductCard/ProductCard';
 import { connect } from 'react-redux';
-import { GET_CATEGORY_PRODUCTS } from '../../GraphQL/Queries';
 import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
 
 class CategoryPage extends Component {
@@ -16,6 +15,15 @@ class CategoryPage extends Component {
             p_last_index: 6,
             l_error: false
         }
+    }
+
+    goToPage = (pageNumber) => {
+        const totalPages = Math.ceil((this.props.ProductList?.length || 0) / this.state.max_product_per_page) || 1;
+        const clampedPage = Math.max(1, Math.min(pageNumber, totalPages));
+        const p_first_index = (clampedPage - 1) * this.state.max_product_per_page;
+        const p_last_index = clampedPage * this.state.max_product_per_page;
+        this.setState({ p_first_index, p_last_index });
+        window.scrollTo(0, 0);
     }
 
     decreaseProductFilter = () => {
@@ -34,25 +42,33 @@ class CategoryPage extends Component {
 
     getdata = () => {
         const load_products = async () => {
-            await fetch(back_end_endpoint(), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    "operationName": GET_CATEGORY_PRODUCTS({ category: this.props.AllCategories[this.props.CurrentCategory] }).operationName,
-                    "query": GET_CATEGORY_PRODUCTS({ category: this.props.AllCategories[this.props.CurrentCategory] }).query,
-                    "variables": {}
-                })
-            })
+            const currentCat = this.props.AllCategories[this.props.CurrentCategory];
+            let url = `${back_end_endpoint()}/api/products?category=${currentCat}`;
+            const userStr = localStorage.getItem("user");
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    if (user.profile) {
+                        if (user.profile.preferred_climate && user.profile.preferred_climate !== "All") {
+                            url += `&climate=${user.profile.preferred_climate}`;
+                        }
+                        if (user.profile.has_sensitive_skin) {
+                            url += `&sensitive_skin=true`;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error reading profile preferences", e);
+                }
+            }
+
+            await fetch(url)
                 .catch(error => {
                     this.setState({ l_error: true });
                     console.error(error);
                 })
                 .then(async (res) => {
                     const json_data = await res.json();
-                    const raw_data = json_data?.data?.category;
-                    this.props.SetProductList(raw_data?.products);
+                    this.props.SetProductList(json_data);
                     this.setState({
                         p_first_index: 0,
                         p_last_index: this.state.max_product_per_page,
@@ -101,19 +117,51 @@ class CategoryPage extends Component {
     }
 
     render() {
+        const totalPages = Math.ceil((this.props.ProductList?.length || 0) / this.state.max_product_per_page) || 1;
+        const currentPage = Math.floor(this.state.p_first_index / this.state.max_product_per_page) + 1;
+        const currentCatName = this.props.AllCategories?.length > 0 ? this.props.AllCategories[this.props.CurrentCategory] : "";
+
         return (
             <main
                 className='categorypage_main'
                 onClick={this.props.handle_CloseCartOrCurr}
             >
+                {currentCatName === "all" && (
+                    <div className="category_tiles_container">
+                        <h2 className="ct_title">Browse by Category</h2>
+                        <div className="ct_grid">
+                            {this.props.AllCategories.map((cat, idx) => {
+                                if (cat === "all") return null;
+                                const coverImages = {
+                                    cotton: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800",
+                                    silk: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800",
+                                    linen: "https://images.unsplash.com/photo-1606744824163-985d376605aa?w=800"
+                                };
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        className={`ct_tile ct_tile_${cat}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const index = this.props.AllCategories.indexOf(cat);
+                                            if (index !== -1) {
+                                                this.props.setCurrentCategory(index);
+                                            }
+                                        }}
+                                    >
+                                        <div className="ct_tile_overlay"></div>
+                                        <img src={coverImages[cat] || coverImages.cotton} alt={cat} className="ct_tile_img" />
+                                        <h3 className="ct_tile_name">{cat.toUpperCase()}</h3>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 {this.props.ProductList?.length > 0 && <div>
                     <h1 className='cp_m_h1'>
-                        {this.props.AllCategories?.length > 0 &&
-                            this.props.AllCategories[this.props.CurrentCategory][0]?.toUpperCase()
-                        }
-                        {this.props.AllCategories?.length > 0 &&
-                            this.props.AllCategories[this.props.CurrentCategory]?.slice(1).toLowerCase()
-                        }
+                        {currentCatName[0]?.toUpperCase()}
+                        {currentCatName?.slice(1).toLowerCase()}
                     </h1>
                     <div className='cp_m_product_w'>
                         {this.props.ProductList?.length > 0 &&
@@ -128,9 +176,15 @@ class CategoryPage extends Component {
                             alt='<'
                             onClick={this.decreaseProductFilter}
                         />
-                        <p>{this.state.p_first_index + 1}</p>
-                        <p>-</p>
-                        <p>{this.state.p_last_index > this.props.ProductList?.length ? this.props.ProductList?.length : this.state.p_last_index}</p>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                            <button
+                                key={pageNum}
+                                className={`page_btn ${currentPage === pageNum ? 'active-page' : ''}`}
+                                onClick={() => this.goToPage(pageNum)}
+                            >
+                                {pageNum}
+                            </button>
+                        ))}
                         <img
                             className='cp_m_p_ar'
                             src={ArrowLeftBlack}
@@ -140,8 +194,8 @@ class CategoryPage extends Component {
                     </div>
                 </div>
                 }
-                {this.props.ProductList?.length < 0 && this.state.l_error === false &&
-                    <p className='cp_m_loading'>Loading Products...</p>
+                {(!this.props.ProductList || this.props.ProductList.length === 0) && this.state.l_error === false &&
+                    <div className='no_products_view'><p>No products found in this category.</p></div>
                 }
                 {this.state.l_error === true &&
                     <p className='cp_m_loading' id='cp_m_loading'>Error Loading Products...</p>
@@ -162,7 +216,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         SetProductList: (p_list) => dispatch({ type: 'SET_PRODUCT_LIST', payload: p_list }),
-        ClearProductList: () => dispatch({ type: 'CLEAR_PRODUCT_LIST' })
+        ClearProductList: () => dispatch({ type: 'CLEAR_PRODUCT_LIST' }),
+        setCurrentCategory: (current_cat) => dispatch({ type: "CURRENT_CATEGORY", payload: current_cat })
     }
 }
 

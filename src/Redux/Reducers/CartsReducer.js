@@ -37,6 +37,8 @@ export const user_carts = (state = [], action) => {
             return new_state;
         case "ADD_USER_CARTS":
             return [action.payload, ...state];
+        case "CLEAR_USER_CARTS":
+            return [];
         default:
             return state;
     }

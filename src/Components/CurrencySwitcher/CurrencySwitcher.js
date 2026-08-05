@@ -2,27 +2,15 @@ import React, { Component } from 'react';
 import './CurrencySwitcher.scss';
 import { connect } from 'react-redux';
 import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
-import { GET_CURRENCIES } from '../../GraphQL/Queries';
 
 class CurrencySwitcher extends Component {
 
     getdata = async () => {
-        await fetch(back_end_endpoint(), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "operationName": GET_CURRENCIES.operationName,
-                "query": GET_CURRENCIES.query,
-                "variables": {}
-            })
-        })
+        await fetch(back_end_endpoint() + "/api/currencies")
             .catch(error => console.error(error))
             .then(async res => {
                 const json_data = await res.json();
-                const raw_data = json_data?.data?.currencies;
-                this.props.setAllCurrencies(raw_data);
+                this.props.setAllCurrencies(json_data);
             });
     }
 

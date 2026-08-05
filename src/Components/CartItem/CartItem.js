@@ -59,10 +59,14 @@ class CartItem extends Component {
 
     handlePriceBasedOnCurr = () => {
         if (this.props.cart_info?.prices?.length > 0) {
-            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol;
+            const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || "$";
             const currency_obj = this.props.cart_info?.prices?.filter(item => item?.currency?.symbol === current_currency_symbol);
-            return currency_obj[0]?.amount === undefined ? '' : currency_obj[0]?.amount.toFixed(2);
+            const amt = currency_obj[0]?.amount;
+            if (amt !== undefined && amt !== null) return parseFloat(amt).toFixed(2);
+            const firstPrice = this.props.cart_info?.prices[0]?.amount;
+            return firstPrice !== undefined ? parseFloat(firstPrice).toFixed(2) : '0.00';
         }
+        return '0.00';
     }
 
     getProductAttributes = () => {
@@ -105,7 +109,7 @@ class CartItem extends Component {
                         <p className='ci_m_1_p cp_m_1_p_b'>{this.props.cart_info?.brand ? this.props.cart_info?.brand : ''}</p>
                         <p className='ci_m_1_p'>{this.props.cart_info?.name ? this.props.cart_info?.name : ''}</p>
                         <h4 className='ci_m_1_h4'>
-                            {this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol}
+                            {this.props.AllCurrencies?.[this.props.CurrentCurrency]?.symbol || '$'}
                             {this.handlePriceBasedOnCurr() === undefined ? '' : this.handlePriceBasedOnCurr()}
                         </h4>
                         {this.getProductAttributes()?.length > 0 &&
@@ -183,7 +187,7 @@ class CartItem extends Component {
                 </div>
                 <div className='ci_m_oof_btn_rmv'>
                     {!this.props.isMini &&
-                        <p className='ci_m_p_subt'>Sub-Total: <span>{this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol}{this.handleSubTotalCalc()}</span></p>
+                        <p className='ci_m_p_subt'>Sub-Total: <span>{this.props.AllCurrencies?.[this.props.CurrentCurrency]?.symbol || '$'}{this.handleSubTotalCalc()}</span></p>
                     }
                     {!this.props.isMini && !this.props.cart_info?.inStock &&
                         <p className='ci_m_p_oof'>OUT OF STOCK</p>
