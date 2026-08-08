@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from . import seed
 from .database import get_db
 from .routers import auth, ai, onboarding, orders, products, supplier
-from .security import settings
+from .security import ALLOWED_ORIGINS
 
 # ------------------------------------------------------------------ app setup
 tags_metadata = [
@@ -33,7 +33,7 @@ app = FastAPI(
 # CORS — origins driven by ANKH_ALLOWED_ORIGINS (defaults to localhost:3000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

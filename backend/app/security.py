@@ -10,20 +10,65 @@ passlib format on the next successful login.
 import hashlib
 import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic_settings import BaseSettings
 from sqlalchemy.orm import Session
 
 from .database import get_db
 from . import models
 
 logger = logging.getLogger(__name__)
+
+# --- configuration ----------------------------------------------------------
+#
+# Read from the environment via os.getenv, with backend/.env loaded as a
+# convenience for local development (python-dotenv). The path is anchored to
+# this file's directory, so it works whether uvicorn runs from backend/ or
+# pytest runs from the repo root. Real environment variables always win over
+# the .env file. See backend/.env.example for the documented template.
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
+
+_is_production = (
+    os.getenv("DEPLOYMENT_ENV") == "production"
+    or os.getenv("PRODUCTION") == "true"
+    or os.getenv("ENV") == "production"
+)
+
+# The default is deliberately ephemeral: a fresh random key per process, so a
+# freshly cloned repo runs out of the box without a shared secret. Tokens then
+# only survive for the life of one process, which is fine for a local demo and
+# obviously wrong in production — where we refuse to start instead.
+SECRET_KEY = os.getenv("ANKH_SECRET_KEY") or secrets.token_urlsafe(64)
+JWT_ALGORITHM = os.getenv("ANKH_JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ANKH_ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ANKH_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
+if _is_production and not os.getenv("ANKH_SECRET_KEY"):
+    raise RuntimeError(
+        "ANKH_SECRET_KEY must be set in production. Refusing to start with an "
+        "ephemeral key: tokens would be invalidated on every restart."
+    )
+if not os.getenv("ANKH_SECRET_KEY"):
+    logger.warning(
+        "ANKH_SECRET_KEY is not set; using an ephemeral key valid only for "
+        "this process. Set it in backend/.env (see .env.example) for any "
+        "deployment that restarts or runs more than one worker."
+    )
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 # Recognises passlib-managed hashes. pbkdf2_sha256 is the active scheme: it is
 # the same algorithm the hand-rolled code used, but passlib owns the salt,
@@ -33,26 +78,6 @@ logger = logging.getLogger(__name__)
 # ``bcrypt.__about__.__version__``, which bcrypt removed in 4.1, so the pairing
 # installed in this venv (passlib 1.7.4 + bcrypt 5.0.0) raises on every hash.
 _pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-
-
-class Settings(BaseSettings):
-    secret_key: str = "supersecretkeymarketplaceankh"
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440  # 24 hours
-    allowed_origins: list[str] = ["http://localhost:3000"]
-
-    model_config = {"env_prefix": "ANKH_", "env_file": ".env", "extra": "ignore"}
-
-
-settings = Settings()
-
-if settings.secret_key == "supersecretkeymarketplaceankh":
-    logger.warning(
-        "ANKH_SECRET_KEY is set to the repository default. "
-        "Set the environment variable for any non-throwaway deployment."
-    )
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 # --- password hashing --------------------------------------------------------
@@ -101,10 +126,10 @@ def _upgrade_hash_if_needed(db, user: models.User, plain_password: str) -> None:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = (datetime.now(timezone.utc) + expires_delta) if expires_delta else (
-        datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+        datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 def get_current_user(
@@ -118,9 +143,7 @@ def get_current_user(
     if not token:
         raise credentials_exception
     try:
-        payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.jwt_algorithm]
-        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception

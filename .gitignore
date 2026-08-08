@@ -4,7 +4,12 @@
 /node_modules
 /.pnp
 .pnp.js
-/.env
+# secrets — no leading slash, so this matches backend/.env too, not just the
+# repo root. ".env" does not match ".env.example", which stays tracked as the
+# documented template.
+.env
+.env.*
+!.env.example
 
 # testing
 /coverage

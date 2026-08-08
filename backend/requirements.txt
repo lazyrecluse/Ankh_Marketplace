@@ -6,6 +6,8 @@ uvicorn==0.52.1
 sqlalchemy==2.0.51
 pydantic==2.13.4
 pydantic-settings
+# Loads backend/.env in app/security.py so config can be read with os.getenv.
+python-dotenv
 alembic
 # passlib's bcrypt backend is broken against bcrypt>=4.1 (it reads
 # bcrypt.__about__, removed upstream), so the app uses passlib's pure-python
