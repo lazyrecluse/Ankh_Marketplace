@@ -2,10 +2,19 @@ import React, { Component } from 'react';
 import './CategoryPage.scss';
 import ArrowLeftBlack from '../../Images/ArrowLeftBlack.png';
 import ProductCard from '../../Components/ProductCard/ProductCard';
+import ProductFilters from './ProductFilters';
 import { connect } from 'react-redux';
+import { withRouter } from 'react-router-dom';
 import { getProducts } from '../../Api/catalog';
 import { resolveImageUrl } from '../../Api/client';
 import { getUser } from '../../Auth/session';
+import {
+    EMPTY_FILTERS,
+    buildProductQuery,
+    hasActiveFilters,
+    parseProductQuery,
+    toApiFilters,
+} from '../../Utils/productQuery';
 
 class CategoryPage extends Component {
     constructor(props) {
@@ -44,23 +53,32 @@ class CategoryPage extends Component {
 
     getdata = () => {
         const load_products = async () => {
-            const filters = {
-                category: this.props.AllCategories[this.props.CurrentCategory]
-            };
+            const urlFilters = parseProductQuery(this.props.location?.search);
 
-            // Buyers get their onboarding preferences applied as filters.
+            // A buyer's onboarding preferences seed the catalog, but only where
+            // the shopper has not chosen for themselves — an explicit filter in
+            // the URL always wins, otherwise clearing one would appear to do
+            // nothing for buyers who set a preference at signup.
             const user = getUser();
+            const effective = { ...urlFilters };
             if (user?.profile) {
-                if (user.profile.preferred_climate && user.profile.preferred_climate !== "All") {
-                    filters.climate = user.profile.preferred_climate;
+                if (
+                    !effective.climate &&
+                    user.profile.preferred_climate &&
+                    user.profile.preferred_climate !== 'All'
+                ) {
+                    effective.climate = user.profile.preferred_climate;
                 }
-                if (user.profile.has_sensitive_skin) {
-                    filters.sensitive_skin = true;
+                if (!effective.sensitive_skin && user.profile.has_sensitive_skin) {
+                    effective.sensitive_skin = true;
                 }
             }
 
+            const category = this.props.AllCategories[this.props.CurrentCategory];
+            const rate = this.props.AllCurrencies?.[this.props.CurrentCurrency]?.rate_to_usd;
+
             try {
-                const json_data = await getProducts(filters);
+                const json_data = await getProducts(toApiFilters(effective, category, rate));
                 this.props.SetProductList(json_data);
                 this.setState({
                     p_first_index: 0,
@@ -103,13 +121,25 @@ class CategoryPage extends Component {
     }
 
     componentDidUpdate = (prevProps) => {
-        if (prevProps.CurrentCategory !== this.props.CurrentCategory) {
+        // The query string drives the filters, so a change to it is as much a
+        // reason to refetch as a category change. Currency matters because the
+        // price filter is typed in the displayed currency and converted to USD
+        // before it reaches the API.
+        if (
+            prevProps.CurrentCategory !== this.props.CurrentCategory ||
+            prevProps.location?.search !== this.props.location?.search ||
+            prevProps.CurrentCurrency !== this.props.CurrentCurrency
+        ) {
             this.handle_Update();
-        } else {
-            if (this.state.error) {
-                this.handle_Update();
-            }
+        } else if (this.state.error) {
+            this.handle_Update();
         }
+    }
+
+    applyFilters = (filters) => {
+        // Push rather than replace: Back should step through filter changes.
+        this.props.history.push(`/products${buildProductQuery(filters)}`);
+        window.scrollTo(0, 0);
     }
 
     render() {
@@ -117,12 +147,17 @@ class CategoryPage extends Component {
         const currentPage = Math.floor(this.state.p_first_index / this.state.max_product_per_page) + 1;
         const currentCatName = this.props.AllCategories?.length > 0 ? this.props.AllCategories[this.props.CurrentCategory] : "";
 
+        const urlFilters = parseProductQuery(this.props.location?.search);
+        const filtersActive = hasActiveFilters(urlFilters);
+        const currency = this.props.AllCurrencies?.[this.props.CurrentCurrency];
+        const resultCount = this.props.ProductList?.length || 0;
+
         return (
             <main
                 className='categorypage_main'
                 onClick={this.props.handle_CloseCartOrCurr}
             >
-                {currentCatName === "all" && (
+                {currentCatName === "all" && !filtersActive && (
                     <div className="category_tiles_container">
                         <h2 className="ct_title">Browse by Category</h2>
                         <div className="ct_grid">
@@ -160,10 +195,21 @@ class CategoryPage extends Component {
                         </div>
                     </div>
                 )}
+                <div className='cp_m_layout'>
+                <ProductFilters
+                    filters={urlFilters}
+                    currencySymbol={currency?.symbol || '$'}
+                    onApply={this.applyFilters}
+                />
+                <div className='cp_m_results'>
                 {this.props.ProductList?.length > 0 && <div>
                     <h1 className='cp_m_h1'>
                         {currentCatName[0]?.toUpperCase()}
                         {currentCatName?.slice(1).toLowerCase()}
+                        <span className='cp_m_count'>
+                            {resultCount} {resultCount === 1 ? 'product' : 'products'}
+                            {urlFilters.search ? ` for “${urlFilters.search}”` : ''}
+                        </span>
                     </h1>
                     <div className='cp_m_product_w'>
                         {this.props.ProductList?.length > 0 &&
@@ -197,11 +243,27 @@ class CategoryPage extends Component {
                 </div>
                 }
                 {(!this.props.ProductList || this.props.ProductList.length === 0) && this.state.l_error === false &&
-                    <div className='no_products_view'><p>No products found in this category.</p></div>
+                    <div className='no_products_view'>
+                        <p>
+                            {filtersActive
+                                ? 'No products match these filters.'
+                                : 'No products found in this category.'}
+                        </p>
+                        {filtersActive &&
+                            <button
+                                className='no_products_clear'
+                                onClick={() => this.applyFilters(EMPTY_FILTERS)}
+                            >
+                                Clear filters
+                            </button>
+                        }
+                    </div>
                 }
                 {this.state.l_error === true &&
                     <p className='cp_m_loading' id='cp_m_loading'>Error Loading Products...</p>
                 }
+                </div>
+                </div>
             </main>
         )
     }
@@ -211,6 +273,8 @@ const mapStateToProps = (state) => {
     return {
         AllCategories: state.AllCategories,
         CurrentCategory: state.CurrentCategory,
+        AllCurrencies: state.AllCurrencies,
+        CurrentCurrency: state.CurrentCurrency,
         ProductList: state.ProductList
     }
 }
@@ -223,4 +287,4 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default (connect(mapStateToProps, mapDispatchToProps)(CategoryPage));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(CategoryPage));

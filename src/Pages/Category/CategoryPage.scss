@@ -5,6 +5,22 @@
     padding-top: 80px;
     position: relative;
 
+    // Two columns: filter sidebar + results. The horizontal padding that used
+    // to sit on .cp_m_h1 (100px) and .cp_m_product_w (50px) moves here so both
+    // columns share one gutter and stay aligned.
+    .cp_m_layout {
+        display: flex;
+        align-items: flex-start;
+        padding: 0 50px;
+        margin-top: 40px;
+
+        .cp_m_results {
+            flex: 1;
+            min-width: 0; // without this the grid refuses to shrink below its
+                          // 386px track and overflows the flex parent
+        }
+    }
+
     .cp_m_h1 {
         font-size: 42px;
         margin-top: 80px;
@@ -14,12 +30,34 @@
         color: var(--black);
     }
 
+    // Inside the two-column layout the gutter comes from .cp_m_layout, and the
+    // heading carries the result count beside it.
+    .cp_m_layout .cp_m_h1 {
+        padding-left: 0;
+        margin-top: 0;
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 12px;
+
+        .cp_m_count {
+            font-size: 15px;
+            color: #7d8084;
+            font-weight: 500;
+        }
+    }
+
     .cp_m_product_w {
         padding: 0 50px;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(386px, 1fr));
         justify-items: center;
         margin-top: 103px;
+    }
+
+    .cp_m_layout .cp_m_product_w {
+        padding: 0;
+        margin-top: 40px;
     }
 
     .cp_m_pagination {
@@ -69,6 +107,32 @@
                 background-color: var(--primaryColor, #5ECE7B);
                 color: #ffffff;
                 border-color: var(--primaryColor, #5ECE7B);
+            }
+        }
+    }
+
+    .no_products_view {
+        font-family: Raleway, 'sans-serif';
+        padding: 40px 0;
+        text-align: center;
+        color: #7d8084;
+
+        .no_products_clear {
+            margin-top: 12px;
+            background: none;
+            border: 1px solid var(--black);
+            border-radius: 4px;
+            padding: 8px 18px;
+            font-family: Raleway, 'sans-serif';
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--black);
+            cursor: pointer;
+            outline: none;
+
+            &:hover {
+                background-color: #f1f2f3;
             }
         }
     }
@@ -160,6 +224,20 @@
     }
 }
 
+// Matches the ProductFilters breakpoint, where the panel turns into a
+// collapsible bar. Stacking has to happen at the same width or the sidebar
+// would squeeze the grid.
+@media (max-width: 900px) {
+
+    .categorypage_main {
+
+        .cp_m_layout {
+            flex-direction: column;
+            padding: 0 20px;
+        }
+    }
+}
+
 @media (max-width:720px) {
 
     .categorypage_main {
@@ -171,10 +249,20 @@
             padding-left: 20px;
         }
 
+        .cp_m_layout .cp_m_h1 {
+            padding-left: 0;
+            margin-top: 0;
+        }
+
         .cp_m_product_w {
             padding: 0px 0px;
             grid-template-columns: repeat(auto-fit, minmax(92vw, 1fr));
             margin-top: 60px;
+        }
+
+        .cp_m_layout .cp_m_product_w {
+            grid-template-columns: 1fr;
+            margin-top: 24px;
         }
 
         .cp_m_loading {

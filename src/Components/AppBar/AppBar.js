@@ -6,6 +6,7 @@ import Cart from '../../Images/Cart.svg';
 import { connect } from 'react-redux';
 import CurrencySwitcher from '../CurrencySwitcher/CurrencySwitcher';
 import MiniCart from '../MiniCart/MiniCart';
+import SearchBar from '../SearchBar/SearchBar';
 import { withRouter } from 'react-router-dom';
 import { getCategories } from '../../Api/catalog';
 import * as session from '../../Auth/session';
@@ -73,6 +74,7 @@ class AppBar extends Component {
                         />
                     </div>
                     <span className='a_m_cur_cart' onClick={this.handleCloseAll}>
+                        <SearchBar onBeforeOpen={this.handleCloseAll} />
                         <span
                             className="a_m_c_c_cur"
                             onClick={() => this.props.setOpenCurrSwitcher(!this.props.openCurrSwitcher)}

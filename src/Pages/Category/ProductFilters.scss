@@ -1,0 +1,182 @@
+// Filter panel for the catalog. Above 900px it is a static sidebar column that
+// is always expanded; below that it collapses behind a "Filters" button so it
+// does not push the product grid off the first screen.
+.pf_panel {
+    width: 240px;
+    min-width: 240px;
+    margin-right: 30px;
+
+    .pf_toggle {
+        display: none; // desktop: the body is always shown, no toggle needed
+        width: 100%;
+        align-items: center;
+        gap: 8px;
+        background: none;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 10px 14px;
+        font-family: Raleway, 'sans-serif';
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--black);
+        cursor: pointer;
+        outline: none;
+
+        .pf_toggle_chevron {
+            margin-left: auto;
+            font-size: 18px;
+            line-height: 1;
+        }
+    }
+
+    .pf_active_dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--primaryColor);
+        display: inline-block;
+    }
+
+    .pf_body {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 18px 16px;
+    }
+
+    .pf_field {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 14px;
+
+        .pf_label {
+            font-family: Raleway, 'sans-serif';
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #7d8084;
+            margin-bottom: 6px;
+        }
+
+        input,
+        select {
+            height: 36px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 0 8px;
+            font-family: Raleway, 'sans-serif';
+            font-size: 14px;
+            color: var(--black);
+            background-color: white;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+
+            &:focus {
+                border-color: var(--primaryColor);
+            }
+        }
+
+        input[type='search'] {
+            &::-webkit-search-decoration,
+            &::-webkit-search-cancel-button {
+                -webkit-appearance: none;
+                appearance: none;
+            }
+        }
+    }
+
+    .pf_row {
+        display: flex;
+        gap: 10px;
+
+        .pf_field {
+            flex: 1;
+            min-width: 0; // lets the two price inputs actually shrink
+        }
+    }
+
+    .pf_checks {
+        margin: 4px 0 16px;
+
+        .pf_check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-family: Raleway, 'sans-serif';
+            font-size: 14px;
+            color: var(--black);
+            cursor: pointer;
+
+            input {
+                width: 16px;
+                height: 16px;
+                accent-color: var(--primaryColor);
+                cursor: pointer;
+            }
+        }
+    }
+
+    .pf_actions {
+        display: flex;
+        gap: 10px;
+
+        button {
+            flex: 1;
+            height: 38px;
+            border-radius: 4px;
+            font-family: Raleway, 'sans-serif';
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .pf_apply {
+            background-color: var(--primaryColor);
+            border: none;
+            color: white;
+
+            &:hover {
+                background-color: var(--primaryColorHover);
+            }
+        }
+
+        .pf_clear {
+            background: none;
+            border: 1px solid #e0e0e0;
+            color: #7d8084;
+
+            &:hover {
+                color: var(--black);
+                border-color: var(--black);
+            }
+        }
+    }
+}
+
+@media (max-width: 900px) {
+    .pf_panel {
+        width: 100%;
+        min-width: 0;
+        margin-right: 0;
+        margin-bottom: 20px;
+
+        .pf_toggle {
+            display: flex;
+        }
+
+        // Collapsed by default on narrow screens; .pf_panel_open is set by the
+        // component when the toggle is pressed.
+        .pf_body {
+            display: none;
+            margin-top: 10px;
+        }
+
+        &.pf_panel_open .pf_body {
+            display: block;
+        }
+    }
+}
