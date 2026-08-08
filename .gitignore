@@ -51,7 +51,5 @@ TEST_READY.md
 #pdf
 *.pdf
 
-*.ini
-
 #model
 .gguf
