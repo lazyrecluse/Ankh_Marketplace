@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { placeOrder } from '../../Api/orders';
+import { isLoggedIn } from '../../Auth/session';
 import './CheckoutPage.scss';
 
 class CheckoutPage extends Component {
@@ -22,8 +23,7 @@ class CheckoutPage extends Component {
     componentDidMount = () => {
         document.title = `ScandiStore | Checkout`;
         // Ensure user is signed in to check out
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!isLoggedIn()) {
             this.props.history.push('/login');
         }
     }
@@ -36,7 +36,6 @@ class CheckoutPage extends Component {
         e.preventDefault();
         this.setState({ error: '', loading: true });
 
-        const token = localStorage.getItem('token');
         const current_currency_symbol = this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || "$";
 
         // Build items
@@ -60,21 +59,7 @@ class CheckoutPage extends Component {
         };
 
         try {
-            const res = await fetch(back_end_endpoint() + '/api/orders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'Failed to place order');
-            }
-
-            // Success
+            const data = await placeOrder(body);
             this.setState({ success: true, orderId: data.order_id });
             this.props.clearCart();
         } catch (err) {

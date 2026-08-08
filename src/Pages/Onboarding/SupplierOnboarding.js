@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
 import './Onboarding.scss';
+import * as onboardingApi from '../../Api/onboarding';
+import * as authApi from '../../Api/auth';
+import * as session from '../../Auth/session';
 
 export default function SupplierOnboarding() {
     const history = useHistory();
@@ -28,44 +30,24 @@ export default function SupplierOnboarding() {
         setError('');
         setLoading(true);
 
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!session.isLoggedIn()) {
             history.push('/login');
             return;
         }
 
-        const body = {
-            business_name: businessName,
-            business_type: businessType,
-            contact_info: contactInfo,
-            address: address,
-            operating_hours: operatingHours,
-            categories: selectedCats
-        };
-
         try {
-            const res = await fetch(back_end_endpoint() + '/api/onboarding/supplier', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
+            await onboardingApi.submitSupplierOnboarding({
+                business_name: businessName,
+                business_type: businessType,
+                contact_info: contactInfo,
+                address: address,
+                operating_hours: operatingHours,
+                categories: selectedCats
             });
 
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || 'Failed to submit onboarding');
-            }
+            const meData = await authApi.getMe();
+            session.setUser(meData);
 
-            // Fetch updated profile
-            const meRes = await fetch(back_end_endpoint() + '/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const meData = await meRes.json();
-            localStorage.setItem('user', JSON.stringify(meData));
-
-            // Redirect to Supplier Dashboard
             history.push('/supplier/dashboard');
         } catch (err) {
             setError(err.message);
@@ -144,7 +126,7 @@ export default function SupplierOnboarding() {
                     <div className="form-group">
                         <label>Fabric Categories You Offer</label>
                         <div className="tags-container">
-                            {['cotton', 'silk', 'linen'].map((cat) => (
+                            {['cotton', 'silk', 'linen', 'woolen', 'mohair', 'ankara', 'kente', 'velvet', 'cashmere'].map((cat) => (
                                 <button
                                     type="button"
                                     key={cat}

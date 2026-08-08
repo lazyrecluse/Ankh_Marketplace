@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { getProducts } from '../../Api/catalog';
+import { getMe } from '../../Api/auth';
+import { getBuyerOrders } from '../../Api/orders';
+import * as session from '../../Auth/session';
+import { resolveImageUrl } from '../../Api/client';
 import './Dashboard.scss';
 
 export default function BuyerDashboard() {
@@ -10,30 +14,53 @@ export default function BuyerDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Search and filter states
+    const [products, setProducts] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('All');
+    const [climateFilter, setClimateFilter] = useState('All');
+    const [sensitiveSkinFilter, setSensitiveSkinFilter] = useState(false);
+    const [priceFilter, setPriceFilter] = useState('');
+
+    const fetchProducts = async () => {
+        try {
+            let data = await getProducts({
+                category: categoryFilter !== 'All' ? categoryFilter : null,
+                search: searchQuery || null,
+                climate: climateFilter !== 'All' ? climateFilter : null,
+                sensitive_skin: sensitiveSkinFilter || null
+            });
+
+            // Client side filter for max price if specified
+            if (priceFilter) {
+                const maxP = parseFloat(priceFilter);
+                if (!isNaN(maxP)) {
+                    data = data.filter(p => {
+                        const price = p.prices?.[0]?.amount || 0;
+                        return price <= maxP;
+                    });
+                }
+            }
+            setProducts(data);
+        } catch (err) {
+            console.error('Failed to load products:', err);
+        }
+    };
+
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        fetchProducts();
+    }, [categoryFilter, climateFilter, sensitiveSkinFilter, priceFilter]);
+
+    useEffect(() => {
+        if (!session.isLoggedIn()) {
             history.push('/login');
             return;
         }
 
         const fetchBuyerData = async () => {
             try {
-                // Get profile
-                const meRes = await fetch(back_end_endpoint() + '/api/auth/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!meRes.ok) throw new Error('Failed to fetch profile details');
-                const meData = await meRes.json();
-                setUser(meData);
-
-                // Get orders
-                const ordersRes = await fetch(back_end_endpoint() + '/api/buyer/orders', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!ordersRes.ok) throw new Error('Failed to fetch order history');
-                const ordersData = await ordersRes.json();
-                setOrders(ordersData);
+                setUser(await getMe());
+                setOrders(await getBuyerOrders());
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -44,9 +71,14 @@ export default function BuyerDashboard() {
         fetchBuyerData();
     }, [history]);
 
+    const handleSearchSubmit = (e) => {
+        if (e) e.preventDefault();
+        fetchProducts();
+    };
+
     const handleLogout = () => {
-        localStorage.clear();
-        history.push('/login');
+        session.clearSession();
+        window.location.href = '/login';
     };
 
     if (loading) return <div className="dashboard-loading">Loading Buyer Dashboard...</div>;
@@ -119,6 +151,113 @@ export default function BuyerDashboard() {
 
                 {/* Orders List */}
                 <main className="dashboard-content">
+                    {/* Search and Filters panel */}
+                    <div className="card catalog-search-card">
+                        <h3>🔍 Traditional Fabric Search & Filters</h3>
+                        <form onSubmit={handleSearchSubmit} className="search-filter-form">
+                            <div className="search-row">
+                                <input 
+                                    type="text" 
+                                    placeholder="Search by fabric name, brand, or specs..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="search-input"
+                                />
+                                <button type="submit" className="btn-search">Search</button>
+                            </div>
+                            <div className="filters-row">
+                                <div className="filter-group">
+                                    <label>Category</label>
+                                    <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                                        <option value="All">All Categories</option>
+                                        <option value="Cotton">Cotton</option>
+                                        <option value="Silk">Silk</option>
+                                        <option value="Linen">Linen</option>
+                                        <option value="Woolen">Woolen</option>
+                                        <option value="Mohair">Mohair</option>
+                                        <option value="Ankara">Ankara</option>
+                                        <option value="Kente">Kente</option>
+                                        <option value="Velvet">Velvet</option>
+                                        <option value="Cashmere">Cashmere</option>
+                                    </select>
+                                </div>
+                                <div className="filter-group">
+                                    <label>Climate</label>
+                                    <select value={climateFilter} onChange={(e) => setClimateFilter(e.target.value)}>
+                                        <option value="All">All Climates</option>
+                                        <option value="Tropical">Tropical</option>
+                                        <option value="Temperate">Temperate</option>
+                                        <option value="Polar">Polar</option>
+                                    </select>
+                                </div>
+                                <div className="filter-group">
+                                    <label>Max Price ($)</label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="e.g. 50" 
+                                        value={priceFilter}
+                                        onChange={(e) => setPriceFilter(e.target.value)}
+                                        className="price-input"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </div>
+                                <div className="filter-group checkbox-group">
+                                    <label className="checkbox-label">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={sensitiveSkinFilter} 
+                                            onChange={(e) => setSensitiveSkinFilter(e.target.checked)}
+                                        />
+                                        <span>Hypoallergenic</span>
+                                    </label>
+                                </div>
+                                <button 
+                                    type="button" 
+                                    className="btn-clear-filters"
+                                    onClick={() => {
+                                        setSearchQuery('');
+                                        setCategoryFilter('All');
+                                        setClimateFilter('All');
+                                        setPriceFilter('');
+                                        setSensitiveSkinFilter(false);
+                                    }}
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="card catalog-results-card">
+                        <h3>Fabric Catalog ({products.length})</h3>
+                        {products.length === 0 ? (
+                            <div className="empty-state">No fabrics match your search criteria.</div>
+                        ) : (
+                            <div className="buyer-products-grid">
+                                {products.map((p) => (
+                                    <div key={p.id} className="buyer-product-card" onClick={() => history.push(`/products/${p.id}`)}>
+                                        <img 
+                                            src={resolveImageUrl(p.gallery?.[0], 'https://via.placeholder.com/150')}
+                                            alt={p.name} 
+                                        />
+                                        <div className="p-info">
+                                            <span className="brand-tag">{p.brand}</span>
+                                            <h4>{p.name}</h4>
+                                            <p className="description">{p.description ? (p.description.substring(0, 80) + '...') : ''}</p>
+                                            <div className="footer-meta">
+                                                <span className="price">{p.prices && p.prices[0]?.currency?.symbol}{p.prices && parseFloat(p.prices[0]?.amount).toFixed(2)}/m</span>
+                                                <span className={`stock-status ${p.inStock ? 'in-stock' : 'out-of-stock'}`}>
+                                                    {p.inStock ? 'Available' : 'Out of Stock'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="card orders-card">
                         <h3>Order History ({orders.length})</h3>
                         {orders.length === 0 ? (

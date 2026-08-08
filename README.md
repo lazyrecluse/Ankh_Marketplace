@@ -1,70 +1,90 @@
-# Getting Started with Create React App
+# Ankh B2B Textile Marketplace
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A B2B marketplace for textile suppliers and buyers: a **React SPA** frontend and a
+**FastAPI** backend, wired together over HTTP/JSON with no shared build.
 
-## Available Scripts
+## Setup
 
-In the project directory, you can run:
+### Backend
 
-### `npm start`
+The schema is owned by Alembic, so migrate before the first start:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+cd backend
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+The app does not create tables on startup — running it against an unmigrated
+database will fail on the first query. For a database that predates Alembic,
+run `.venv/bin/alembic stamp 0001_baseline` once instead of upgrading.
 
-### `npm test`
+Swagger UI is at http://localhost:8000/docs.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The virtualenv is managed by `uv` and has no `pip`. Install into it with:
 
-### `npm run build`
+```bash
+cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements.txt
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Frontend
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+npm start        # dev server on :3000
+npm run build    # production bundle into build/
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+`REACT_APP_BACKEND_ENDPOINT` overrides the backend URL; it defaults to
+`http://localhost:8000`.
 
-### `npm run eject`
+## Tests
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Run from the **repo root** — the suites import `backend.app.main`:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+backend/.venv/bin/python -m pytest
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+`backend/tests/conftest.py` points `DATABASE_URL` at a throwaway SQLite file per
+session, so tests never touch `backend/ankh_marketplace.db`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+There are no frontend tests; `npm test` runs the CRA/Jest harness against an
+empty suite.
 
-## Learn More
+## Layout
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+src/                    React SPA
+  Api/                  HTTP client + one module per feature area
+  Auth/session.js       the only place that touches auth localStorage keys
+  Components/  Pages/   UI
+  Redux/                store concerns only (cart, categories, currencies)
+backend/
+  app/
+    routers/            one module per OpenAPI tag
+    models.py           SQLAlchemy models
+    schemas.py          Pydantic request/response models
+    security.py         password hashing, JWT, role dependencies
+    serializers.py      product -> JSON shaping
+    seed.py             startup seed (categories, currencies, demo catalog)
+  alembic/              migrations
+  tests/
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Configuration
 
-### Code Splitting
+Backend settings are read from the environment with the `ANKH_` prefix
+(see `Settings` in `backend/app/security.py`):
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:///backend/ankh_marketplace.db` | Also how the Postgres in `docker-compose.yml` gets used |
+| `ANKH_SECRET_KEY` | dev placeholder | Logs a warning if left at the default |
+| `ANKH_ALLOWED_ORIGINS` | `["http://localhost:3000"]` | CORS allowlist |
+| `ANKH_ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | JWT lifetime |
 
-### Analyzing the Bundle Size
+The demo supplier account seeded on first run is `supplier@ankh.com` / `password`.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`CLAUDE.md` documents the architecture, conventions, and known rough edges in
+more detail.

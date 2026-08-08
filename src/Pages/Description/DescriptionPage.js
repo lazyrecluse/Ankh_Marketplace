@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import parse from "html-react-parser";
 import styled from 'styled-components';
 import Alert from '../../Components/Alert/Alert';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { getProduct } from '../../Api/catalog';
 
 class DescriptionPage extends Component {
 
@@ -33,23 +33,21 @@ class DescriptionPage extends Component {
     }
 
     getdata = async () => {
-        await fetch(back_end_endpoint() + `/api/products/${this.props.match?.params?.id}`)
-            .catch(error => {
-                console.error(error);
-            })
-            .then(async (res) => {
-                const json_data = await res.json();
-                if (json_data?.attributes?.length > 0) {
-                    for (let i = 0; i < json_data?.attributes?.length; i++) {
-                        const a_id = json_data?.attributes[i]?.id;
-                        const a_val = json_data?.attributes[i]?.items[0]?.value;
-                        let prev_state = this.state.productAttribs;
-                        prev_state[a_id] = a_val;
-                        this.setState({ productAttribs: { ...prev_state } });
-                    }
+        try {
+            const json_data = await getProduct(this.props.match?.params?.id);
+            if (json_data?.attributes?.length > 0) {
+                for (let i = 0; i < json_data?.attributes?.length; i++) {
+                    const a_id = json_data?.attributes[i]?.id;
+                    const a_val = json_data?.attributes[i]?.items[0]?.value;
+                    let prev_state = this.state.productAttribs;
+                    prev_state[a_id] = a_val;
+                    this.setState({ productAttribs: { ...prev_state } });
                 }
-                this.props.SetCurrentProduct(json_data);
-            })
+            }
+            this.props.SetCurrentProduct(json_data);
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     setProductAttributes = (attrib_name, attrib_value) => {

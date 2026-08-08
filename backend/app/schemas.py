@@ -51,7 +51,7 @@ class BuyerProfileOut(BaseModel):
     budget_range: Optional[str]
     preferred_climate: Optional[str]
     has_sensitive_skin: bool
-    skin_preferences: Optional[str]
+    skin_preferences: Optional[List[str]] = []
 
     class Config:
         orm_mode = True
@@ -62,7 +62,7 @@ class SupplierProfileOut(BaseModel):
     contact_info: Optional[str]
     address: Optional[str]
     operating_hours: Optional[str]
-    categories: Optional[str]
+    categories: Optional[List[str]] = []
 
     class Config:
         orm_mode = True
@@ -79,20 +79,22 @@ class CurrencyOut(BaseModel):
     id: int
     label: str
     symbol: str
+    rate_to_usd: float
 
     class Config:
         orm_mode = True
 
 # --- Product ---
 class ProductBase(BaseModel):
-    id: str
-    brand: str
+    id: Optional[str] = None
+    brand: Optional[str] = None
     name: str
     in_stock: bool
-    gallery: List[str]
+    gallery: Optional[List[str]] = []
     description: Optional[str] = None
     price_amount: float
     currency_symbol: str
+    category_id: Optional[int] = None
     gsm: Optional[int] = None
     breathability_rating: Optional[int] = None
     is_hypoallergenic: Optional[bool] = False
@@ -159,3 +161,16 @@ class SupplierDashboardOut(BaseModel):
     pending_orders: int
     recent_orders: List[OrderOut]
     inventory_alerts: List[ProductOut]
+
+# --- AI Chat Assistant ---
+class AIChatMessage(BaseModel):
+    role: str
+    content: str
+
+class AIChatRequest(BaseModel):
+    message: str
+    chat_history: List[AIChatMessage] = []
+
+class AIChatResponse(BaseModel):
+    response: str
+    recommended_products: List[str]

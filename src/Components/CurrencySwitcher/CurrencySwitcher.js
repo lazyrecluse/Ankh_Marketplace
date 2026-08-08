@@ -1,17 +1,16 @@
 import React, { Component } from 'react';
 import './CurrencySwitcher.scss';
 import { connect } from 'react-redux';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { getCurrencies } from '../../Api/catalog';
 
 class CurrencySwitcher extends Component {
 
     getdata = async () => {
-        await fetch(back_end_endpoint() + "/api/currencies")
-            .catch(error => console.error(error))
-            .then(async res => {
-                const json_data = await res.json();
-                this.props.setAllCurrencies(json_data);
-            });
+        try {
+            this.props.setAllCurrencies(await getCurrencies());
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     componentDidMount = () => {

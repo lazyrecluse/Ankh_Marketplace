@@ -7,8 +7,8 @@ import { connect } from 'react-redux';
 import CurrencySwitcher from '../CurrencySwitcher/CurrencySwitcher';
 import MiniCart from '../MiniCart/MiniCart';
 import { withRouter } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
-// Removed unused GraphQL query import
+import { getCategories } from '../../Api/catalog';
+import * as session from '../../Auth/session';
 
 class AppBar extends Component {
     state = {
@@ -32,13 +32,12 @@ class AppBar extends Component {
     }
 
     getdata = async () => {
-        await fetch(back_end_endpoint() + "/api/categories")
-            .catch(error => console.error(error))
-            .then(async (res) => {
-                const json_data = await res.json();
-                const processed_data = json_data.map(c => c.name);
-                this.props.setAllCategories(processed_data);
-            })
+        try {
+            const categories = await getCategories();
+            this.props.setAllCategories(categories.map(c => c.name));
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     componentDidMount = () => {
@@ -100,9 +99,9 @@ class AppBar extends Component {
                             />
                         </span>
                         <span className="a_m_c_c_auth" style={{ marginLeft: "20px", display: "inline-flex", alignItems: "center", position: "relative" }}>
-                            {localStorage.getItem('token') ? (
+                            {session.isLoggedIn() ? (
                                 <div className="a_m_profile_dropdown_container">
-                                    <button 
+                                    <button
                                         className="profile_toggle_btn"
                                         onClick={this.toggleProfileDropdown}
                                     >
@@ -111,34 +110,32 @@ class AppBar extends Component {
                                     {this.state.openProfileDropdown && (
                                         <div className="profile_dropdown_menu">
                                             <div className="profile_email">
-                                                {(() => {
-                                                    try {
-                                                        const user = JSON.parse(localStorage.getItem('user'));
-                                                        return user?.email || 'User';
-                                                    } catch(e) {
-                                                        return 'User';
-                                                    }
-                                                })()}
+                                                {session.getUser()?.email || 'User'}
                                             </div>
                                             <div className="profile_role">
-                                                {localStorage.getItem('role') || 'buyer'}
+                                                {session.getRole() || 'buyer'}
                                             </div>
                                             <div className="profile_divider"></div>
-                                            <button 
+                                            <button
                                                 className="profile_menu_btn"
                                                 onClick={() => {
                                                     this.closeProfileDropdown();
-                                                    const role = localStorage.getItem('role');
+                                                    const role = session.getRole();
                                                     this.props.history?.push(role === 'supplier' ? '/supplier/dashboard' : '/buyer/dashboard');
                                                 }}
                                             >
                                                 Dashboard
                                             </button>
-                                            <button 
+                                            <button
                                                 className="profile_logout_btn"
                                                 onClick={() => {
                                                     this.closeProfileDropdown();
-                                                    localStorage.clear();
+                                                    // Clear only the auth keys, then reset Redux
+                                                    // explicitly. localStorage.clear() used to also
+                                                    // wipe the redux-persist store, which is why
+                                                    // this needed a full page reload to recover.
+                                                    session.clearSession();
+                                                    this.props.resetStore();
                                                     this.props.history?.push('/login');
                                                 }}
                                             >
@@ -195,7 +192,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         setAllCategories: (all_cat) => dispatch({ type: "ALL_CATEGORIES", payload: all_cat }),
-        setCurrentCategory: (current_cat) => dispatch({ type: "CURRENT_CATEGORY", payload: current_cat })
+        setCurrentCategory: (current_cat) => dispatch({ type: "CURRENT_CATEGORY", payload: current_cat }),
+        resetStore: () => dispatch({ type: "RESET_STORE" })
     }
 }
 

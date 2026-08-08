@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import {
+    getDashboard,
+    getSupplierOrders,
+    updateOrderStatus,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    uploadImage
+} from '../../Api/supplier';
+import { getMe } from '../../Api/auth';
+import { getProducts } from '../../Api/catalog';
+import { resolveImageUrl } from '../../Api/client';
+import * as session from '../../Auth/session';
 import './Dashboard.scss';
 
 export default function SupplierDashboard() {
@@ -11,7 +23,7 @@ export default function SupplierDashboard() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
+
     // Inventory Modal/Form state
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
@@ -37,25 +49,9 @@ export default function SupplierDashboard() {
         const file = e.target.files[0];
         if (!file) return;
 
-        const token = localStorage.getItem('token');
-        const formData = new FormData();
-        formData.append('file', file);
-
         setUploading(true);
         try {
-            const res = await fetch(back_end_endpoint() + '/api/upload', {
-                method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: formData
-            });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || 'Image upload failed');
-            }
-
-            const data = await res.json();
-            const uploadedUrl = data.url || data.image_url;
+            const uploadedUrl = await uploadImage(file);
             if (uploadedUrl) {
                 setPGallery((prev) => (prev ? `${prev}\n${uploadedUrl}` : uploadedUrl));
             }
@@ -68,39 +64,22 @@ export default function SupplierDashboard() {
     };
 
     const fetchAllSupplierData = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!session.isLoggedIn()) {
             history.push('/login');
             return;
         }
 
         try {
-            // Get profile info
-            const meRes = await fetch(back_end_endpoint() + '/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const meData = await meRes.json();
+            const meData = await getMe();
             setUser(meData);
 
-            // Get dashboard stats
-            const statsRes = await fetch(back_end_endpoint() + '/api/supplier/dashboard', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const statsData = await statsRes.json();
+            const statsData = await getDashboard();
             setDashboardMetrics(statsData);
 
-            // Get order details
-            const ordersRes = await fetch(back_end_endpoint() + '/api/supplier/orders', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const ordersData = await ordersRes.json();
+            const ordersData = await getSupplierOrders();
             setOrders(ordersData);
 
-            // Get supplier products
-            const productsRes = await fetch(back_end_endpoint() + `/api/products?supplier_id=${meData.id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const productsData = await productsRes.json();
+            const productsData = await getProducts({ supplier_id: meData.id });
             setProducts(productsData);
         } catch (err) {
             setError(err.message);
@@ -114,26 +93,17 @@ export default function SupplierDashboard() {
     }, [history]);
 
     const handleLogout = () => {
-        localStorage.clear();
-        history.push('/login');
+        // Clears only the auth keys; the persisted Redux cart survives.
+        session.clearSession();
+        window.location.href = '/login';
     };
 
-    // Update incoming order status
-    const updateOrderStatus = async (orderId, newStatus) => {
-        const token = localStorage.getItem('token');
+    // Update incoming order status, then refresh so the row reflects the
+    // persisted value rather than the optimistic select state.
+    const handleOrderStatusChange = async (orderId, newStatus) => {
         try {
-            const res = await fetch(back_end_endpoint() + `/api/supplier/orders/${orderId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ status: newStatus })
-            });
-            if (!res.ok) throw new Error('Failed to update status');
-            
-            // Refresh
-            fetchAllSupplierData();
+            await updateOrderStatus(orderId, newStatus);
+            await fetchAllSupplierData();
         } catch (err) {
             alert(err.message);
         }
@@ -142,11 +112,10 @@ export default function SupplierDashboard() {
     // Add or Edit Product Form Submission
     const handleProductSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem('token');
-        
+
         // Clean formats
         const galleryList = pGallery.split('\n').filter(url => url.trim() !== '');
-        
+
         const body = {
             id: pId,
             brand: pBrand,
@@ -164,27 +133,13 @@ export default function SupplierDashboard() {
             recommended_climate: pClimates
         };
 
-        const method = editingProduct ? 'PUT' : 'POST';
-        const url = editingProduct 
-            ? `/api/supplier/products/${editingProduct.id}`
-            : `/api/supplier/products`;
-
         try {
-            const res = await fetch(back_end_endpoint() + url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || 'Failed to save product');
+            if (editingProduct) {
+                await updateProduct(editingProduct.id, body);
+            } else {
+                await createProduct(body);
             }
 
-            // Reset forms and refresh
             setShowAddForm(false);
             setEditingProduct(null);
             resetForm();
@@ -196,13 +151,8 @@ export default function SupplierDashboard() {
 
     const handleDeleteProduct = async (prodId) => {
         if (!window.confirm("Are you sure you want to delete this fabric product from your catalog?")) return;
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(back_end_endpoint() + `/api/supplier/products/${prodId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error("Failed to delete product");
+            await deleteProduct(prodId);
             fetchAllSupplierData();
         } catch (err) {
             alert(err.message);
@@ -266,6 +216,8 @@ export default function SupplierDashboard() {
                     <button className="btn-logout" onClick={handleLogout}>Log Out</button>
                 </div>
             </header>
+
+            {error && <div className="dashboard-alert error">{error}</div>}
 
             {/* Metrics Row */}
             <section className="metrics-row">
@@ -331,7 +283,7 @@ export default function SupplierDashboard() {
                                                     <div className="status-dropdown-group">
                                                         <select 
                                                             value={o.status}
-                                                            onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                                                            onChange={(e) => handleOrderStatusChange(o.id, e.target.value)}
                                                         >
                                                             <option value="Pending">Pending</option>
                                                             <option value="Accepted">Accepted</option>
@@ -366,7 +318,7 @@ export default function SupplierDashboard() {
                             <div className="supplier-products-list">
                                 {products.map((p) => (
                                     <div key={p.id} className="supplier-product-item">
-                                        <img src={p.gallery[0] ? (p.gallery[0].startsWith('/') ? back_end_endpoint() + p.gallery[0] : p.gallery[0]) : 'https://via.placeholder.com/80'} alt={p.name} />
+                                        <img src={resolveImageUrl(p.gallery?.[0], 'https://via.placeholder.com/80')} alt={p.name} />
                                         <div className="product-info-mini">
                                             <h4>{p.name}</h4>
                                             <p className="text-muted">{p.brand} • {p.prices[0]?.currency?.symbol}{parseFloat(p.prices[0]?.amount).toFixed(2)}</p>
@@ -393,30 +345,6 @@ export default function SupplierDashboard() {
                     <div className="modal-content">
                         <h2>{editingProduct ? 'Edit Fabric Specifications' : 'List New Fabric Product'}</h2>
                         <form onSubmit={handleProductSubmit}>
-                            <div className="onboard-grid">
-                                <div className="form-group">
-                                    <label>Unique Slug ID</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        placeholder="e.g. linen-organic-light" 
-                                        value={pId} 
-                                        onChange={(e) => setPId(e.target.value)} 
-                                        disabled={!!editingProduct}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Brand Name</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        placeholder="e.g. Ankh Eco Textiles" 
-                                        value={pBrand} 
-                                        onChange={(e) => setPBrand(e.target.value)} 
-                                    />
-                                </div>
-                            </div>
-
                             <div className="form-group">
                                 <label>Fabric Product Name</label>
                                 <input 
@@ -459,17 +387,6 @@ export default function SupplierDashboard() {
                                 {uploading && <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '4px' }}>Uploading image...</p>}
                             </div>
 
-                            <div className="form-group">
-                                <label>Gallery Image URLs (one per line)</label>
-                                <textarea 
-                                    rows="3" 
-                                    required
-                                    placeholder="https://images.unsplash.com/... or /static/uploads/..." 
-                                    value={pGallery} 
-                                    onChange={(e) => setPGallery(e.target.value)} 
-                                />
-                            </div>
-
                             {pGallery.split('\n').filter(url => url.trim() !== '').length > 0 && (
                                 <div className="form-group">
                                     <label>Gallery Preview</label>
@@ -477,7 +394,7 @@ export default function SupplierDashboard() {
                                         {pGallery.split('\n').filter(url => url.trim() !== '').map((url, idx) => (
                                             <div key={idx} style={{ position: 'relative' }}>
                                                 <img 
-                                                    src={url.startsWith('/') ? back_end_endpoint() + url : url} 
+                                                    src={resolveImageUrl(url)}
                                                     alt={`preview-${idx}`} 
                                                     style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ccc' }} 
                                                 />

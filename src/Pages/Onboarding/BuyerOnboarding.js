@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
 import './Onboarding.scss';
+import * as onboardingApi from '../../Api/onboarding';
+import * as authApi from '../../Api/auth';
+import * as session from '../../Auth/session';
 
 export default function BuyerOnboarding() {
     const history = useHistory();
@@ -31,8 +33,7 @@ export default function BuyerOnboarding() {
         setError('');
         setLoading(true);
 
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!session.isLoggedIn()) {
             history.push('/login');
             return;
         }
@@ -56,28 +57,11 @@ export default function BuyerOnboarding() {
         };
 
         try {
-            const res = await fetch(back_end_endpoint() + '/api/onboarding/buyer', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
-            });
+            await onboardingApi.submitBuyerOnboarding(body);
 
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || 'Failed to submit onboarding');
-            }
+            const meData = await authApi.getMe();
+            session.setUser(meData);
 
-            // Fetch updated profile
-            const meRes = await fetch(back_end_endpoint() + '/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const meData = await meRes.json();
-            localStorage.setItem('user', JSON.stringify(meData));
-
-            // Redirect to home discovery
             history.push('/products');
         } catch (err) {
             setError(err.message);

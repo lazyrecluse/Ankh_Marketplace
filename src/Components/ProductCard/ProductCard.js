@@ -3,7 +3,7 @@ import './ProductCard.scss';
 import CartIcon from '../../Images/CartWhite.svg';
 import { withRouter } from 'react-router-dom';
 import { connect } from 'react-redux';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { resolveImageUrl } from '../../Api/client';
 
 class ProductCard extends Component {
 
@@ -145,7 +145,7 @@ class ProductCard extends Component {
                 </div>
                 {this.props.product_info?.gallery[0] && (this.props.product_info?.gallery[0].includes("http") || this.props.product_info?.gallery[0].startsWith("/")) ?
                     <img
-                        src={this.props.product_info?.gallery[0].startsWith('/') ? back_end_endpoint() + this.props.product_info?.gallery[0] : this.props.product_info?.gallery[0]}
+                        src={resolveImageUrl(this.props.product_info?.gallery[0])}
                         alt='product'
                         className='pc_m_img'
                         id={this.props.product_info?.inStock ? '' : 'pc_m_img'}

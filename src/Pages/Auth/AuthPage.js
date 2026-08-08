@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useHistory, useLocation, Link } from 'react-router-dom';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
 import './AuthPage.scss';
+import * as authApi from '../../Api/auth';
+import * as session from '../../Auth/session';
 
 export default function AuthPage({ buyerMode = false }) {
     const history = useHistory();
@@ -10,7 +11,7 @@ export default function AuthPage({ buyerMode = false }) {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('buyer'); // buyer or supplier
+    const [role, setRole] = useState('buyer');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -19,55 +20,30 @@ export default function AuthPage({ buyerMode = false }) {
         setError('');
         setLoading(true);
 
-        const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        const body = isLogin 
-            ? { email, password } 
-            : { email, password, role };
-
         try {
-            const res = await fetch(back_end_endpoint() + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'Authentication failed');
-            }
-
             if (isLogin) {
-                localStorage.setItem('token', data.access_token);
-                localStorage.setItem('role', data.role);
-                
-                // Fetch profile to verify if onboarding is completed
-                const meRes = await fetch(back_end_endpoint() + '/api/auth/me', {
-                    headers: { 'Authorization': `Bearer ${data.access_token}` }
-                });
-                const meData = await meRes.json();
-                localStorage.setItem('user', JSON.stringify(meData));
+                const data = await authApi.login(email, password);
+                session.setSession({ token: data.access_token, role: data.role });
 
-                // Route accordingly
+                // Fetch profile to check if onboarding is completed
+                const meData = await authApi.getMe();
+                session.setUser(meData);
+
+                // Route based on role and onboarding state
                 if (data.role === 'buyer') {
-                    if (meData.profile && meData.profile.business_type) {
-                        history.push('/products');
-                    } else {
-                        history.push('/onboarding/buyer');
-                    }
+                    const needsOnboarding = !meData.profile || !meData.profile.business_type;
+                    history.push(needsOnboarding ? '/onboarding/buyer' : '/products');
                 } else {
-                    if (meData.profile && meData.profile.business_name) {
-                        history.push('/supplier/dashboard');
-                    } else {
-                        history.push('/onboarding/supplier');
-                    }
+                    const needsOnboarding = !meData.profile || !meData.profile.business_name;
+                    history.push(needsOnboarding ? '/onboarding/supplier' : '/supplier/dashboard');
                 }
             } else {
-                // After successful registration, toggle to login screen
+                await authApi.register(email, password, role);
                 setIsLogin(true);
-                setError('Registration successful! Please login.');
+                setError('Registration successful! Please log in.');
             }
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'An error occurred');
         } finally {
             setLoading(false);
         }

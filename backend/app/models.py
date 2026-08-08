@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, DateTime, Text
+from sqlalchemy import JSON, Column, Integer, String, Boolean, ForeignKey, Float, DateTime, Text
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -30,7 +30,9 @@ class BuyerProfile(Base):
     # Climate and Sensitivity preferences for AI
     preferred_climate = Column(String, nullable=True) # "Tropical", "Temperate", "Polar", "All"
     has_sensitive_skin = Column(Boolean, default=False)
-    skin_preferences = Column(Text, nullable=True) # JSON list string e.g. ["Hypoallergenic Only", "Ultra Soft Only"]
+    # e.g. ["Hypoallergenic Only", "Ultra Soft Only"]. SQLite stores JSON as
+    # TEXT, so this is on-disk identical to the old hand-serialized column.
+    skin_preferences = Column(JSON, nullable=True, default=list)
 
     user = relationship("User", back_populates="buyer_profile")
 
@@ -44,7 +46,7 @@ class SupplierProfile(Base):
     contact_info = Column(String, nullable=True)
     address = Column(String, nullable=True)
     operating_hours = Column(String, nullable=True)
-    categories = Column(Text, nullable=True) # JSON list string of category names
+    categories = Column(JSON, nullable=True, default=list) # list of category names
 
     user = relationship("User", back_populates="supplier_profile")
 
@@ -60,6 +62,10 @@ class Currency(Base):
     id = Column(Integer, primary_key=True, index=True)
     label = Column(String, unique=True, index=True, nullable=False)
     symbol = Column(String, nullable=False)
+    # Multiplier applied to a product's stored USD price_amount. USD is 1.0.
+    # Replaces the 0.92/0.79 constants that used to be hardcoded in
+    # build_product_prices().
+    rate_to_usd = Column(Float, nullable=False, default=1.0)
 
 class Product(Base):
     __tablename__ = "products"
@@ -68,11 +74,15 @@ class Product(Base):
     brand = Column(String, nullable=False)
     name = Column(String, nullable=False)
     in_stock = Column(Boolean, default=True)
-    gallery = Column(Text, nullable=False) # JSON list string of image URLs
+    gallery = Column(JSON, nullable=False, default=list) # list of image URLs
     description = Column(Text, nullable=True)
     price_amount = Column(Float, nullable=False)
     currency_symbol = Column(String, nullable=False)
     supplier_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Replaces the `id LIKE 'cotton%' OR name LIKE '%cotton%'` filter that
+    # GET /api/products used to run, which existed only because products had
+    # no category of their own.
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)
 
     # AI Recommendation Engine Fields
     gsm = Column(Integer, nullable=True) # Fabric weight
@@ -80,9 +90,10 @@ class Product(Base):
     is_hypoallergenic = Column(Boolean, default=False)
     texture_smoothness = Column(Integer, nullable=True) # 1-5
     oeko_tex_certified = Column(Boolean, default=False)
-    recommended_climate = Column(Text, nullable=True) # JSON list string of recommended climates e.g. ["Tropical"]
+    recommended_climate = Column(JSON, nullable=True, default=list) # e.g. ["Tropical"]
 
     supplier = relationship("User", back_populates="products")
+    category = relationship("Category")
     order_items = relationship("OrderItem", back_populates="product")
 
 class Order(Base):

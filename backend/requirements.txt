@@ -1,8 +1,23 @@
-fastapi<0.100.0
-uvicorn
-sqlalchemy
-pydantic<2
-passlib[bcrypt]
+# Pinned to the versions actually installed in backend/.venv.
+# The previous file pinned fastapi<0.100 and pydantic<2, neither of which
+# matched the running environment.
+fastapi==0.141.1
+uvicorn==0.52.1
+sqlalchemy==2.0.51
+pydantic==2.13.4
+pydantic-settings
+alembic
+# passlib's bcrypt backend is broken against bcrypt>=4.1 (it reads
+# bcrypt.__about__, removed upstream), so the app uses passlib's pure-python
+# pbkdf2_sha256 scheme and does not need the [bcrypt] extra.
+passlib
 python-jose[cryptography]
 python-multipart
 email-validator
+
+# Local GGUF inference for POST /api/ai/chat. Large; the model itself is
+# downloaded on first use into app/ai_models/.
+llama-cpp-python==0.3.34
+
+# Test suite. Run from the repo root: the suites import backend.app.main.
+pytest

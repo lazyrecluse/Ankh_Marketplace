@@ -13,6 +13,7 @@ import BuyerOnboarding from '../Pages/Onboarding/BuyerOnboarding';
 import SupplierOnboarding from '../Pages/Onboarding/SupplierOnboarding';
 import BuyerDashboard from '../Pages/Dashboard/BuyerDashboard';
 import SupplierDashboard from '../Pages/Dashboard/SupplierDashboard';
+import AIAssistant from '../Components/AIAssistant/AIAssistant';
 
 class App extends Component {
   constructor(props) {
@@ -93,13 +94,19 @@ class App extends Component {
           id={this.state.openMiniCartOverlay ? 'app_m_fade' : ''}
           onClick={this.handle_CloseCartOrCurr}
         ></div>
-        <AppBar
-          openCurrSwitcher={this.state.openCurrSwitcher}
-          openMiniCartOverlay={this.state.openMiniCartOverlay}
-          setOpenCurrSwitcher={this.setOpenCurrSwitcher}
-          setOpenMiniCartOverlay={this.setOpenMiniCartOverlay}
-          handle_CloseCartOrCurr={this.handle_CloseCartOrCurr}
-        />
+        <Route render={({ location }) => {
+          const isAuthPage = location.pathname.startsWith('/login');
+          return !isAuthPage ? (
+            <AppBar
+              openCurrSwitcher={this.state.openCurrSwitcher}
+              openMiniCartOverlay={this.state.openMiniCartOverlay}
+              setOpenCurrSwitcher={this.setOpenCurrSwitcher}
+              setOpenMiniCartOverlay={this.setOpenMiniCartOverlay}
+              handle_CloseCartOrCurr={this.handle_CloseCartOrCurr}
+            />
+          ) : null;
+        }} />
+        <AIAssistant />
         <div className='app_w'>
           <Switch>
             <Redirect exact={true} from="/" to="/products" />

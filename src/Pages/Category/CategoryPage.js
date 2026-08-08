@@ -3,7 +3,9 @@ import './CategoryPage.scss';
 import ArrowLeftBlack from '../../Images/ArrowLeftBlack.png';
 import ProductCard from '../../Components/ProductCard/ProductCard';
 import { connect } from 'react-redux';
-import { back_end_endpoint } from '../../Configs/BackEndEndpoint';
+import { getProducts } from '../../Api/catalog';
+import { resolveImageUrl } from '../../Api/client';
+import { getUser } from '../../Auth/session';
 
 class CategoryPage extends Component {
     constructor(props) {
@@ -42,39 +44,33 @@ class CategoryPage extends Component {
 
     getdata = () => {
         const load_products = async () => {
-            const currentCat = this.props.AllCategories[this.props.CurrentCategory];
-            let url = `${back_end_endpoint()}/api/products?category=${currentCat}`;
-            const userStr = localStorage.getItem("user");
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    if (user.profile) {
-                        if (user.profile.preferred_climate && user.profile.preferred_climate !== "All") {
-                            url += `&climate=${user.profile.preferred_climate}`;
-                        }
-                        if (user.profile.has_sensitive_skin) {
-                            url += `&sensitive_skin=true`;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error reading profile preferences", e);
+            const filters = {
+                category: this.props.AllCategories[this.props.CurrentCategory]
+            };
+
+            // Buyers get their onboarding preferences applied as filters.
+            const user = getUser();
+            if (user?.profile) {
+                if (user.profile.preferred_climate && user.profile.preferred_climate !== "All") {
+                    filters.climate = user.profile.preferred_climate;
+                }
+                if (user.profile.has_sensitive_skin) {
+                    filters.sensitive_skin = true;
                 }
             }
 
-            await fetch(url)
-                .catch(error => {
-                    this.setState({ l_error: true });
-                    console.error(error);
-                })
-                .then(async (res) => {
-                    const json_data = await res.json();
-                    this.props.SetProductList(json_data);
-                    this.setState({
-                        p_first_index: 0,
-                        p_last_index: this.state.max_product_per_page,
-                        l_error: false
-                    });
+            try {
+                const json_data = await getProducts(filters);
+                this.props.SetProductList(json_data);
+                this.setState({
+                    p_first_index: 0,
+                    p_last_index: this.state.max_product_per_page,
+                    l_error: false
                 });
+            } catch (error) {
+                this.setState({ l_error: true });
+                console.error(error);
+            }
         }
 
         if (this.props.AllCategories.length > 0) {
@@ -135,7 +131,13 @@ class CategoryPage extends Component {
                                 const coverImages = {
                                     cotton: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800",
                                     silk: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800",
-                                    linen: "https://images.unsplash.com/photo-1606744824163-985d376605aa?w=800"
+                                    linen: "https://images.unsplash.com/photo-1606744824163-985d376605aa?w=800",
+                                    woolen: resolveImageUrl("/static/uploads/woolen_fabric_1.jpg"),
+                                    mohair: resolveImageUrl("/static/uploads/mohair_fabric_1.jpg"),
+                                    ankara: resolveImageUrl("/static/uploads/ankara_fabric_1.jpg"),
+                                    kente: resolveImageUrl("/static/uploads/kente_fabric_1.jpg"),
+                                    velvet: resolveImageUrl("/static/uploads/velvet_fabric_1.jpg"),
+                                    cashmere: resolveImageUrl("/static/uploads/cashmere_fabric_1.jpg")
                                 };
                                 return (
                                     <div 
