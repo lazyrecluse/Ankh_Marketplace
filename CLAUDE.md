@@ -47,6 +47,22 @@ cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements.txt
 
 `backend/docker-compose.yml` provisions Postgres that nothing connects to by default; it becomes usable via `DATABASE_URL`.
 
+## Deployment
+
+`render.yaml` at the repo root is a Render blueprint defining three services: managed Postgres (`ankh-db`), the FastAPI backend (`ankh-api`), and the CRA frontend as a static site (`ankh-web`). `.github/workflows/ci.yml` runs the pytest suite and a `CI=true` frontend build on push and PR — independent of Render's auto-deploy.
+
+Things that differ from local and are easy to get wrong:
+
+- **Migrations run in the backend's start command**, not the build command: `cd backend && alembic upgrade head && uvicorn ...`. The build environment is not reliably attached to the private database, and `preDeployCommand` is not on the free plan. The `&&` is load-bearing — nothing calls `create_all()` in app code, so booting against an unmigrated database crashes `seed_db_if_empty()` on its first query.
+- **`DATABASE_URL` is normalised in `app/database.py`.** Render issues `postgres://`, which SQLAlchemy 2.x rejects; it is rewritten to `postgresql+psycopg://` so psycopg 3 is selected explicitly. `pool_pre_ping` is on for non-SQLite because managed Postgres drops idle connections.
+- **`REACT_APP_BACKEND_ENDPOINT` is baked in at build time**, not read at runtime — CRA inlines `REACT_APP_*` during `npm run build`. Changing it in the Render dashboard requires a **rebuild**, not a restart. It is the only `REACT_APP_*` variable in the codebase.
+- **`ANKH_ALLOWED_ORIGINS` must be the exact frontend origin.** `main.py` sets `allow_credentials=True`, which makes a `*` wildcard illegal under the CORS spec.
+- **`ANKH_SECRET_KEY` must be set** when `DEPLOYMENT_ENV=production`, or `app/security.py` raises at import and the service refuses to boot rather than signing JWTs with a per-process key.
+- **The static site needs the SPA rewrite** (`/*` → `/index.html`) or a hard refresh on a react-router v5 deep link like `/products/:id` 404s.
+- **`ANKH_AI_ENABLED` defaults to false**, and `llama-cpp-python` lives in `backend/requirements-ai.txt` rather than `requirements.txt`, so deploy builds never install it. `POST /api/ai/chat` returns 503 while disabled.
+
+Migration `0002` carries `postgresql_using="<col>::json"` on its four `ALTER COLUMN ... TYPE JSON` statements. Postgres refuses that cast from `text` without an explicit `USING`, even on empty tables; SQLite ignores the kwarg because batch mode rebuilds the table instead. Verify any future type-change migration against both dialects — `DATABASE_URL='postgres://u:p@h/db' alembic upgrade head --sql` renders the Postgres DDL without needing a live server.
+
 ## Architecture
 
 ### The legacy-shape contract

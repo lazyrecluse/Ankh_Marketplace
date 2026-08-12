@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useHistory } from 'react-router-dom';
 import { getProducts } from '../../Api/catalog';
 import { getMe } from '../../Api/auth';
@@ -22,11 +22,20 @@ export default function BuyerDashboard() {
     const [sensitiveSkinFilter, setSensitiveSkinFilter] = useState(false);
     const [priceFilter, setPriceFilter] = useState('');
 
-    const fetchProducts = async () => {
+    // Held in a ref rather than closed over, so that fetchProducts stays stable
+    // as the shopper types. Closing over searchQuery would make fetchProducts a
+    // new function per keystroke, and the effect below would then fire a
+    // request per keystroke.
+    const searchQueryRef = useRef(searchQuery);
+    useEffect(() => {
+        searchQueryRef.current = searchQuery;
+    }, [searchQuery]);
+
+    const fetchProducts = useCallback(async () => {
         try {
             let data = await getProducts({
                 category: categoryFilter !== 'All' ? categoryFilter : null,
-                search: searchQuery || null,
+                search: searchQueryRef.current || null,
                 climate: climateFilter !== 'All' ? climateFilter : null,
                 sensitive_skin: sensitiveSkinFilter || null
             });
@@ -45,11 +54,11 @@ export default function BuyerDashboard() {
         } catch (err) {
             console.error('Failed to load products:', err);
         }
-    };
+    }, [categoryFilter, climateFilter, sensitiveSkinFilter, priceFilter]);
 
     useEffect(() => {
         fetchProducts();
-    }, [categoryFilter, climateFilter, sensitiveSkinFilter, priceFilter]);
+    }, [fetchProducts]);
 
     useEffect(() => {
         if (!session.isLoggedIn()) {

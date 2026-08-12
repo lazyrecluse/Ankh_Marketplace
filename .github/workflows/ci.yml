@@ -1,0 +1,42 @@
+name: CI
+
+# A pre-merge gate, deliberately independent of Render's auto-deploy-on-push:
+# Render redeploys on its own, and this is what tells you whether it should have.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+      # No Postgres service needed: backend/tests/conftest.py points
+      # DATABASE_URL at a throwaway SQLite file at import time and seeds it.
+      # Run from the repo root — pytest.ini sets pythonpath so the suites can
+      # import backend.app.main.
+      - run: python -m pytest -q
+
+  frontend:
+    name: frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          # The point of this job. Render sets CI=true, which makes
+          # react-scripts treat lint warnings as errors — so a warning that is
+          # merely noisy locally is a failed deploy there. Catch it here.
+          CI: "true"

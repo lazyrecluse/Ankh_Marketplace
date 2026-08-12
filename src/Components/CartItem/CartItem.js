@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import ArrowLeft from '../../Images/ArrowLeft.png';
 import AddSign from '../../Images/AddSign.png';
 import SubtractSign from '../../Images/SubtractSign.png';
+import { resolveImageUrl } from '../../Api/client';
 
 class CartItem extends Component {
     constructor(props) {
@@ -177,9 +178,9 @@ class CartItem extends Component {
                                     <img src={ArrowLeft} alt='R' />
                                 </button>
                             }
-                            <img src={this.props.isMini ?
+                            <img src={resolveImageUrl(this.props.isMini ?
                                 this.props.cart_info?.gallery[0] :
-                                this.props.cart_info?.gallery[this.state.gallery_index]} alt='product'
+                                this.props.cart_info?.gallery[this.state.gallery_index])} alt='product'
                                 className='ci_m_2_i_img'
                             />
                         </div>

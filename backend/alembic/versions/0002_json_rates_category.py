@@ -36,15 +36,21 @@ _SEED_RATES = {"USD": 1.0, "EUR": 0.92, "GBP": 0.79}
 
 def upgrade() -> None:
     # --- 1. Text -> JSON -----------------------------------------------------
+    # postgresql_using is required on Postgres: it refuses ALTER COLUMN ... TYPE
+    # json from text without an explicit cast, even when the table is empty.
+    # SQLite ignores the kwarg — batch mode rebuilds the table there, and
+    # ApplyBatchImpl.alter_column only reads existing_type.
     with op.batch_alter_table("products") as batch:
         batch.alter_column(
-            "gallery", existing_type=sa.Text(), type_=sa.JSON(), existing_nullable=False
+            "gallery", existing_type=sa.Text(), type_=sa.JSON(), existing_nullable=False,
+            postgresql_using="gallery::json",
         )
         batch.alter_column(
             "recommended_climate",
             existing_type=sa.Text(),
             type_=sa.JSON(),
             existing_nullable=True,
+            postgresql_using="recommended_climate::json",
         )
 
     with op.batch_alter_table("buyer_profiles") as batch:
@@ -53,11 +59,13 @@ def upgrade() -> None:
             existing_type=sa.Text(),
             type_=sa.JSON(),
             existing_nullable=True,
+            postgresql_using="skin_preferences::json",
         )
 
     with op.batch_alter_table("supplier_profiles") as batch:
         batch.alter_column(
-            "categories", existing_type=sa.Text(), type_=sa.JSON(), existing_nullable=True
+            "categories", existing_type=sa.Text(), type_=sa.JSON(), existing_nullable=True,
+            postgresql_using="categories::json",
         )
 
     # --- 2. currency rates ---------------------------------------------------
@@ -115,7 +123,8 @@ def downgrade() -> None:
 
     with op.batch_alter_table("supplier_profiles") as batch:
         batch.alter_column(
-            "categories", existing_type=sa.JSON(), type_=sa.Text(), existing_nullable=True
+            "categories", existing_type=sa.JSON(), type_=sa.Text(), existing_nullable=True,
+            postgresql_using="categories::text",
         )
 
     with op.batch_alter_table("buyer_profiles") as batch:
@@ -124,6 +133,7 @@ def downgrade() -> None:
             existing_type=sa.JSON(),
             type_=sa.Text(),
             existing_nullable=True,
+            postgresql_using="skin_preferences::text",
         )
 
     with op.batch_alter_table("products") as batch:
@@ -132,7 +142,9 @@ def downgrade() -> None:
             existing_type=sa.JSON(),
             type_=sa.Text(),
             existing_nullable=True,
+            postgresql_using="recommended_climate::text",
         )
         batch.alter_column(
-            "gallery", existing_type=sa.JSON(), type_=sa.Text(), existing_nullable=False
+            "gallery", existing_type=sa.JSON(), type_=sa.Text(), existing_nullable=False,
+            postgresql_using="gallery::text",
         )

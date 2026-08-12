@@ -1,0 +1,14 @@
+# Optional dependencies for the local LLM assistant (POST /api/ai/chat).
+#
+# Deliberately NOT in requirements.txt: the wheel may compile from source when
+# none matches the host Python, and the ~1.1 GB Qwen2.5-1.5B GGUF is downloaded
+# into app/ai_models/ on the first request. A deployment build should not pay
+# either cost, and the endpoint is gated off by default (ANKH_AI_ENABLED).
+#
+# Install locally with:
+#   cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements-ai.txt
+#
+# Then set ANKH_AI_ENABLED=true in backend/.env to turn the endpoint on.
+
+-r requirements.txt
+llama-cpp-python==0.3.34

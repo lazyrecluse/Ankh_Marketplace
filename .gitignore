@@ -52,4 +52,4 @@ TEST_READY.md
 *.pdf
 
 #model
-.gguf
+*.gguf

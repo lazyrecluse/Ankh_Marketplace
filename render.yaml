@@ -1,0 +1,78 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Three services: managed Postgres, the FastAPI backend, and the CRA frontend
+# as a static site. Deploy with Render's "New > Blueprint" pointed at this repo.
+#
+# After the FIRST deploy, check the URLs Render actually assigned. If they are
+# not the ones below, correct both ANKH_ALLOWED_ORIGINS and
+# REACT_APP_BACKEND_ENDPOINT — and note that the frontend one needs a *rebuild*
+# to take effect, not just a restart (see the comment on it below).
+
+databases:
+  - name: ankh-db
+    databaseName: ankh_marketplace
+    user: ankh
+    plan: free
+
+services:
+  # ------------------------------------------------------------------ backend
+  - type: web
+    name: ankh-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    # Migrations run here rather than in buildCommand: the build environment is
+    # not reliably attached to the private database, and preDeployCommand is not
+    # available on the free plan. `&&` matters — a failed migration must not
+    # boot the app, because the startup hook seeds and seed.py immediately
+    # queries tables that would not exist. cwd must be backend/, since
+    # alembic.ini uses a relative script_location.
+    startCommand: cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/categories
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ankh-db
+          property: connectionString
+      # Generated once by Render and held across deploys. Without it, and with
+      # DEPLOYMENT_ENV=production set, the app deliberately refuses to start
+      # (backend/app/security.py) rather than sign JWTs with an ephemeral key.
+      - key: ANKH_SECRET_KEY
+        generateValue: true
+      - key: DEPLOYMENT_ENV
+        value: production
+      # Must be the exact frontend origin. A wildcard is illegal here because
+      # main.py sets allow_credentials=True.
+      - key: ANKH_ALLOWED_ORIGINS
+        value: https://ankh-web.onrender.com
+      - key: ANKH_JWT_ALGORITHM
+        value: HS256
+      - key: ANKH_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      # The local GGUF assistant. Off: the model is a ~1.1 GB download loaded
+      # in-process, which will not fit a small instance. Turning it on also
+      # requires installing backend/requirements-ai.txt in buildCommand.
+      - key: ANKH_AI_ENABLED
+        value: "false"
+
+  # ----------------------------------------------------------------- frontend
+  - type: web
+    name: ankh-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./build
+    envVars:
+      # BUILD-time, not runtime: Create React App inlines REACT_APP_* into the
+      # bundle during `npm run build`. Changing this in the dashboard does
+      # nothing until the site is rebuilt. It is the only REACT_APP_* var in
+      # the codebase (src/Configs/BackEndEndpoint.js).
+      - key: REACT_APP_BACKEND_ENDPOINT
+        value: https://ankh-api.onrender.com
+      - key: NODE_VERSION
+        value: "22.22.1"
+    routes:
+      # Required for react-router v5 deep links: without it, a hard refresh on
+      # /products/:id asks Render for a file that does not exist and 404s.
+      - type: rewrite
+        source: /*
+        destination: /index.html

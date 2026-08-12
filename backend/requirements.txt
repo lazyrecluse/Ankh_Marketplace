@@ -9,6 +9,11 @@ pydantic-settings
 # Loads backend/.env in app/security.py so config can be read with os.getenv.
 python-dotenv
 alembic
+# Postgres driver. psycopg 3 rather than psycopg2: the venv runs Python 3.14,
+# for which psycopg2-binary has no wheel and would need a source build.
+# [binary] bundles libpq, so no compiler or libpq-dev is needed on the host.
+# 3.3.4 is the first release shipping cp314 wheels — 3.2.x stops at cp313.
+psycopg[binary]==3.3.4
 # passlib's bcrypt backend is broken against bcrypt>=4.1 (it reads
 # bcrypt.__about__, removed upstream), so the app uses passlib's pure-python
 # pbkdf2_sha256 scheme and does not need the [bcrypt] extra.
@@ -17,9 +22,11 @@ python-jose[cryptography]
 python-multipart
 email-validator
 
-# Local GGUF inference for POST /api/ai/chat. Large; the model itself is
-# downloaded on first use into app/ai_models/.
-llama-cpp-python==0.3.34
+# NOTE: llama-cpp-python lives in requirements-ai.txt, not here. It is only
+# needed when ANKH_AI_ENABLED is on, may compile from source when no wheel
+# matches, and pulls a ~1.1 GB model on first request — none of which belongs
+# in a deployment build. Install it locally with:
+#   cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements-ai.txt
 
 # Test suite. Run from the repo root: the suites import backend.app.main.
 pytest

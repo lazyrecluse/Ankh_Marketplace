@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
     getDashboard,
@@ -63,7 +63,7 @@ export default function SupplierDashboard() {
         }
     };
 
-    const fetchAllSupplierData = async () => {
+    const fetchAllSupplierData = useCallback(async () => {
         if (!session.isLoggedIn()) {
             history.push('/login');
             return;
@@ -86,11 +86,11 @@ export default function SupplierDashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [history]);
 
     useEffect(() => {
         fetchAllSupplierData();
-    }, [history]);
+    }, [fetchAllSupplierData]);
 
     const handleLogout = () => {
         // Clears only the auth keys; the persisted Redux cart survives.

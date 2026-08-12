@@ -6,7 +6,6 @@ import ProductFilters from './ProductFilters';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 import { getProducts } from '../../Api/catalog';
-import { resolveImageUrl } from '../../Api/client';
 import { getUser } from '../../Auth/session';
 import {
     EMPTY_FILTERS,
@@ -167,12 +166,16 @@ class CategoryPage extends Component {
                                     cotton: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800",
                                     silk: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800",
                                     linen: "https://images.unsplash.com/photo-1606744824163-985d376605aa?w=800",
-                                    woolen: resolveImageUrl("/static/uploads/woolen_fabric_1.jpg"),
-                                    mohair: resolveImageUrl("/static/uploads/mohair_fabric_1.jpg"),
-                                    ankara: resolveImageUrl("/static/uploads/ankara_fabric_1.jpg"),
-                                    kente: resolveImageUrl("/static/uploads/kente_fabric_1.jpg"),
-                                    velvet: resolveImageUrl("/static/uploads/velvet_fabric_1.jpg"),
-                                    cashmere: resolveImageUrl("/static/uploads/cashmere_fabric_1.jpg")
+                                    // Absolute URLs, matching seed.py: the previous
+                                    // /static/uploads/*.jpg paths point into a
+                                    // gitignored directory, so they 404 on any fresh
+                                    // deploy.
+                                    woolen: "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=800",
+                                    mohair: "https://images.unsplash.com/photo-1565084888279-aca607ecce0c?w=800",
+                                    ankara: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800",
+                                    kente: "https://images.unsplash.com/photo-1596993100471-c3905dafa78e?w=800",
+                                    velvet: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=800",
+                                    cashmere: "https://images.unsplash.com/photo-1551232864-3f0890e580d9?w=800"
                                 };
                                 return (
                                     <div 
