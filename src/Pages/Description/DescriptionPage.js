@@ -6,7 +6,6 @@ import parse from "html-react-parser";
 import styled from 'styled-components';
 import Alert from '../../Components/Alert/Alert';
 import { getProduct } from '../../Api/catalog';
-import { resolveImageUrl } from '../../Api/client';
 
 class DescriptionPage extends Component {
 
@@ -224,7 +223,8 @@ class DescriptionPage extends Component {
                                     this.props.CurrentProduct?.gallery?.map((item, i) =>
                                         <img
                                             key={i}
-                                            src={resolveImageUrl(item)}
+
+                                            src={item}
                                             alt='prev'
                                             onClick={() => this.setState({ galleryIndex: i })}
                                         />
@@ -234,7 +234,7 @@ class DescriptionPage extends Component {
                             {this.props.CurrentProduct?.gallery?.length > 0 &&
                                 <img
                                     className='dp_m_1_ci'
-                                    src={resolveImageUrl(this.props.CurrentProduct?.gallery[this.state.galleryIndex])}
+                                    src={this.props.CurrentProduct?.gallery[this.state.galleryIndex]}
                                     alt='product_image' />
                             }
                         </div>
