@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ankh_marketplace_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/app/db_data
+    environment:
+      - DATABASE_URL=sqlite:////app/db_data/ankh_marketplace.db
+      - DEPLOYMENT_ENV=development
+      - ANKH_ALLOWED_ORIGINS=http://localhost:3000
+      - ANKH_SECRET_KEY=local_development_secret_key_placeholder
+      - ANKH_JWT_ALGORITHM=HS256
+      - ANKH_ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - ANKH_AI_ENABLED=false
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ankh_marketplace_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_ENDPOINT=http://localhost:8000
+      - WDS_SOCKET_PORT=0
+    depends_on:
+      - backend
+
+volumes:
+  sqlite_data:
