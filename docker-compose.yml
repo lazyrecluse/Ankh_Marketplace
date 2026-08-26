@@ -1,36 +1,105 @@
-version: '3.8'
+# Local full-stack development. Render does NOT read this file — it builds the
+# two Dockerfiles directly (see render.yaml). This exists so you can run the
+# whole stack, Postgres included, the way it is deployed.
+#
+#   docker compose up --build          # http://localhost:3000
+#   docker compose down                # stop, keep data
+#   docker compose down -v             # stop and wipe the database
+#
+# The frontend service deliberately does NOT use the production image. That
+# image is nginx serving a pre-built static bundle, which has no hot reload; here
+# we stop at the Dockerfile's `deps` stage (node_modules only) and run the CRA
+# dev server against bind-mounted source. Render builds the whole Dockerfile and
+# gets nginx.
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: ankh_db
+    environment:
+      POSTGRES_USER: ankh
+      POSTGRES_PASSWORD: ankh
+      POSTGRES_DB: ankh_marketplace
+    ports:
+      # Exposed so you can psql in, or point a host-side uvicorn at it via
+      # DATABASE_URL without going through a container.
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend runs migrations the instant it starts, so it must not race
+      # Postgres's first-boot initialisation. depends_on alone only waits for
+      # the container to exist, not for the server to accept connections.
+      test: ["CMD-SHELL", "pg_isready -U ankh -d ankh_marketplace"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: ankh_marketplace_backend
+    container_name: ankh_api
     ports:
       - "8000:8000"
-    volumes:
-      - sqlite_data:/app/db_data
     environment:
-      - DATABASE_URL=sqlite:////app/db_data/ankh_marketplace.db
-      - DEPLOYMENT_ENV=development
-      - ANKH_ALLOWED_ORIGINS=http://localhost:3000
-      - ANKH_SECRET_KEY=local_development_secret_key_placeholder
-      - ANKH_JWT_ALGORITHM=HS256
-      - ANKH_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      - ANKH_AI_ENABLED=false
+      # Exercises the postgres:// -> postgresql+psycopg:// normalisation in
+      # app/database.py, which is the form Render hands out.
+      DATABASE_URL: postgres://ankh:ankh@db:5432/ankh_marketplace
+      # NOT production: that would make a missing ANKH_SECRET_KEY fatal and stop
+      # ai_helper falling back to the keyword scorer.
+      DEPLOYMENT_ENV: development
+      ANKH_SECRET_KEY: local-only-not-a-real-secret
+      ANKH_ALLOWED_ORIGINS: http://localhost:3000
+      ANKH_JWT_ALGORITHM: HS256
+      ANKH_ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+      # The GGUF is a ~1.1GB download and llama-cpp-python is not installed in
+      # the image. /api/ai/chat returns 503 while off.
+      ANKH_AI_ENABLED: "false"
+    volumes:
+      # Live code reload: uvicorn --reload picks up host edits without a rebuild.
+      # Overlays the image's /app/app, so the installed dependencies survive.
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      # Uploads written by the running app land on the host rather than vanishing
+      # with the container.
+      - ./backend/app/static/uploads:/app/app/static/uploads
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: ankh_marketplace_frontend
+      # Stop at the deps stage — see the note at the top of this file. It has
+      # node_modules and package.json but no source COPY and no CI=true, so the
+      # bind-mounted src/ and public/ below are what the dev server serves.
+      target: deps
+    container_name: ankh_web
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_BACKEND_ENDPOINT=http://localhost:8000
-      - WDS_SOCKET_PORT=0
+      # Read at build time for the production image, but the dev server reads it
+      # at startup, so setting it here works for local runs.
+      REACT_APP_BACKEND_ENDPOINT: http://localhost:8000
+      # Lets the hot-reload websocket work through the mapped port.
+      WDS_SOCKET_PORT: "0"
+      # Belt and braces: the deps stage does not set CI=true (only the build
+      # stage does), but react-scripts also treats a CI value inherited from the
+      # host shell as warnings-as-errors, which would break the dev server.
+      CI: "false"
+    volumes:
+      # Host source for hot reload, with the container's node_modules preserved
+      # by the anonymous volume — the host copy may hold mismatched native
+      # binaries, and on a fresh clone may not exist at all.
+      - ./src:/app/src
+      - ./public:/app/public
+      - /app/node_modules
+    command: npm start
     depends_on:
       - backend
 
 volumes:
-  sqlite_data:
+  pgdata:

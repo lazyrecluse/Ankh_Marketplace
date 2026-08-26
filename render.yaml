@@ -1,4 +1,28 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Two Docker services plus a managed Postgres. Render builds each Dockerfile
+# directly; it does NOT read docker-compose.yml (that file is local dev only).
+#
+# After the FIRST deploy, check the URLs Render actually assigned. If they differ
+# from the ones below, fix ANKH_ALLOWED_ORIGINS here and the frontend's
+# REACT_APP_BACKEND_ENDPOINT build arg — and note that changing the frontend one
+# requires a REBUILD, not a restart, because CRA inlines it into the bundle.
+#
+# FREE TIER CAVEATS, both deliberate:
+#   * The free Postgres EXPIRES 30 days after creation, with a 14-day grace
+#     period to upgrade before Render deletes it and all its data. Upgrade the
+#     database to a paid instance type before then to keep anything.
+#   * Free web services spin down after 15 minutes idle and cold-start in about
+#     a minute, and their filesystem is ephemeral — which is why the database is
+#     Postgres rather than SQLite on a disk (free services cannot attach disks).
+#     Uploaded product images therefore do not survive a restart; the seeded
+#     catalog uses absolute Unsplash URLs and is unaffected. Tracked in TODO.md.
+
+databases:
+  - name: ankh-db
+    databaseName: ankh_marketplace
+    user: ankh
+    plan: free
 
 services:
   # ------------------------------------------------------------------ backend
@@ -9,23 +33,33 @@ services:
     dockerContext: backend
     plan: free
     healthCheckPath: /api/categories
-    disk:
-      name: sqlite-disk
-      mountPath: /app/db_data
-      sizeGB: 1
     envVars:
+      # Render supplies this as postgres://, which SQLAlchemy 2.x rejects;
+      # app/database.py rewrites it to postgresql+psycopg:// so psycopg 3 is
+      # selected explicitly. Migration 0002 carries the postgresql_using casts
+      # that Postgres needs for its four TEXT -> JSON column changes.
       - key: DATABASE_URL
-        value: sqlite:////app/db_data/ankh_marketplace.db
+        fromDatabase:
+          name: ankh-db
+          property: connectionString
+      # Generated once and retained across deploys. Without it, and with
+      # DEPLOYMENT_ENV=production, app/security.py raises at import and the
+      # service refuses to boot rather than signing JWTs with a per-process key.
       - key: ANKH_SECRET_KEY
         generateValue: true
       - key: DEPLOYMENT_ENV
         value: production
+      # Must be the frontend's exact origin — main.py sets
+      # allow_credentials=True, which makes a "*" wildcard illegal under CORS.
       - key: ANKH_ALLOWED_ORIGINS
         value: https://ankh-web.onrender.com
       - key: ANKH_JWT_ALGORITHM
         value: HS256
       - key: ANKH_ACCESS_TOKEN_EXPIRE_MINUTES
         value: "1440"
+      # Off: the model is a ~1.1 GB GGUF loaded in-process, far past a free
+      # instance's memory. /api/ai/chat returns a clean 503 while disabled, and
+      # llama-cpp-python is not installed in the image.
       - key: ANKH_AI_ENABLED
         value: "false"
 
@@ -33,9 +67,26 @@ services:
   - type: web
     name: ankh-web
     runtime: docker
-    dockerfilePath: Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
+    healthCheckPath: /healthz
+    buildFilter:
+      # Skip frontend rebuilds for backend-only commits. Without this, every
+      # backend change also rebuilds the SPA — slow on the free tier.
+      paths:
+        - src/**
+        - public/**
+        - package.json
+        - package-lock.json
+        - Dockerfile
+        - nginx.conf
     envVars:
+      # Render automatically passes a Docker service's env vars to the image
+      # build as --build-arg, which is what makes this reach the Dockerfile's
+      # `ARG REACT_APP_BACKEND_ENDPOINT`. That matters because Create React App
+      # inlines REACT_APP_* into the bundle at BUILD time — a value seen only at
+      # container start would never reach the compiled JavaScript. Consequence:
+      # changing this needs a REBUILD, not a restart.
       - key: REACT_APP_BACKEND_ENDPOINT
         value: https://ankh-api.onrender.com

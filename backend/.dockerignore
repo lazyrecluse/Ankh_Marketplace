@@ -1,0 +1,31 @@
+# Build context for the BACKEND image (context is backend/).
+#
+# Two entries here are load-bearing for image size, not just tidiness:
+# app/ai_models can hold a ~1.1 GB GGUF, and app/static/uploads accumulates
+# every locally uploaded image (tens of MB each).
+
+# Recreated by pip inside the image, and built against the host's Python.
+.venv
+__pycache__
+*.pyc
+
+# The local SQLite database. The deployed one lives on the mounted disk; copying
+# a dev database into the image would shadow it on first boot.
+*.db
+*.db-journal
+
+# Secrets. Render supplies these as environment variables instead.
+.env
+.env.*
+
+# The downloaded Qwen GGUF (~1.1 GB). The AI assistant is gated off by default
+# and llama-cpp-python is not installed in this image, so the model is never
+# needed here.
+app/ai_models
+
+# Locally uploaded product images. products.py recreates this directory at
+# import time, so the StaticFiles mount still works without it.
+app/static/uploads
+
+# Optional AI dependency set — deliberately not installed in the deploy image.
+requirements-ai.txt
