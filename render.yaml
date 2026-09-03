@@ -52,7 +52,7 @@ services:
       # Must be the frontend's exact origin — main.py sets
       # allow_credentials=True, which makes a "*" wildcard illegal under CORS.
       - key: ANKH_ALLOWED_ORIGINS
-        value: https://ankh-web.onrender.com
+        value: https://ankh-marketplace.onrender.com,https://ankh-web.onrender.com
       - key: ANKH_JWT_ALGORITHM
         value: HS256
       - key: ANKH_ACCESS_TOKEN_EXPIRE_MINUTES
