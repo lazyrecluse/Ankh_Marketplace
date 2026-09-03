@@ -29,4 +29,6 @@ email-validator
 #   cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements-ai.txt
 
 # Test suite. Run from the repo root: the suites import backend.app.main.
+# fastapi.testclient requires httpx.
 pytest
+httpx
