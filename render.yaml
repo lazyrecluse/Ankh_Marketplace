@@ -89,4 +89,4 @@ services:
       # container start would never reach the compiled JavaScript. Consequence:
       # changing this needs a REBUILD, not a restart.
       - key: REACT_APP_BACKEND_ENDPOINT
-        value: https://ankh-api.onrender.com
+        value: https://ankh-backend.onrender.com

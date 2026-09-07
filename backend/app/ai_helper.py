@@ -1,77 +1,107 @@
+import json
 import logging
 import os
-import urllib.request
-import json
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy.orm import Session
+
 from . import models
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_MODEL = "gemini-2.5-flash"
+
 
 class AIDisabledError(RuntimeError):
-    """Raised when the local LLM assistant is switched off for this deployment.
+    """Raised when the AI assistant is disabled or missing credentials."""
+    pass
 
-    Distinct from a generation failure: the caller turns this into a 503 rather
-    than a 500, and it must not fall back to the keyword scorer, which would
-    make a disabled assistant look like a working one.
-    """
+
+class AIRateLimitError(RuntimeError):
+    """Raised when Gemini API rate limits / quotas are exceeded."""
+    pass
+
+
+def get_gemini_api_key() -> Optional[str]:
+    return os.getenv("GEMINI_API_KEY")
+
+
+def get_gemini_model() -> str:
+    return os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
 
 
 def ai_enabled() -> bool:
-    """Whether POST /api/ai/chat should serve requests.
-
-    Defaults to OFF. The model is a ~1.1 GB GGUF downloaded on first use and
-    loaded in-process, which is far too heavy for a small deployment instance,
-    so it has to be opted into explicitly rather than out of.
-    """
-    return os.getenv("ANKH_AI_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+    """Whether POST /api/ai/chat should serve requests."""
+    enabled_flag = os.getenv("ANKH_AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+    has_key = bool(get_gemini_api_key())
+    return enabled_flag and has_key
 
 
-MODEL_URL = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_models")
-MODEL_PATH = os.path.join(MODEL_DIR, "qwen2.5-1.5b-instruct-q4_k_m.gguf")
+def retrieve_pertinent_context(
+    db: Session,
+    message: str,
+    user: Optional[models.User] = None
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Retrieve pertinent products and buyer preferences from database tables."""
+    # 1. Retrieve Buyer Profile if user is logged in
+    buyer_context: Dict[str, Any] = {}
+    if user and user.buyer_profile:
+        bp = user.buyer_profile
+        buyer_context = {
+            "preferred_climate": bp.preferred_climate,
+            "has_sensitive_skin": bp.has_sensitive_skin,
+            "skin_preferences": bp.skin_preferences or [],
+            "budget_range": bp.budget_range,
+            "typical_order_qty": bp.typical_order_qty,
+        }
 
-# Global model instance
-_llama_model = None
-
-def download_model_if_needed():
-    if os.path.exists(MODEL_PATH):
-        return
-    
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    print(f"Downloading Qwen2.5 model from Hugging Face...")
-    # Use urllib to download
-    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-    print("Model download completed successfully.")
-
-def get_llama():
-    global _llama_model
-    if _llama_model is not None:
-        return _llama_model
-    
-    download_model_if_needed()
-    from llama_cpp import Llama
-    # Optimize threads to avoid pinning all cores (use min of 2 or cpu_count-1)
-    num_threads = max(1, min(2, (os.cpu_count() or 2) - 1))
-    _llama_model = Llama(
-        model_path=MODEL_PATH,
-        n_ctx=512,  # Reduced from 4096 to 512 to significantly lower memory/KV cache footprint
-        n_threads=num_threads,
-        verbose=False
-    )
-    return _llama_model
-
-def get_products_context(db: Session) -> str:
+    # 2. Query Products from database
     products = db.query(models.Product).all()
-    context = []
+
+    # Score products based on query relevance for ranking
+    msg_lower = message.lower()
+    scored_products = []
     for p in products:
-        # gallery and recommended_climate are native JSON columns now (Phase 1)
-        context.append({
+        score = 0
+        cat_name = p.category.name.lower() if p.category else ""
+        if cat_name and cat_name in msg_lower:
+            score += 4
+        if p.name.lower() in msg_lower or p.brand.lower() in msg_lower:
+            score += 3
+        if p.description and any(w in p.description.lower() for w in msg_lower.split() if len(w) > 3):
+            score += 1
+
+        # Match climate
+        p_climates = [c.lower() for c in (p.recommended_climate or [])]
+        for c in ["tropical", "temperate", "polar", "all", "hot", "cold", "summer", "winter"]:
+            if c in msg_lower:
+                if c in p_climates or "all" in p_climates:
+                    score += 3
+
+        # Match sensitive skin / hypoallergenic
+        if any(k in msg_lower for k in ["hypoallergenic", "sensitive", "skin", "rash", "allergy", "eczema"]):
+            if p.is_hypoallergenic:
+                score += 4
+
+        # Match breathability
+        if any(k in msg_lower for k in ["breathable", "airy", "ventilation", "sweat"]):
+            if p.breathability_rating and p.breathability_rating >= 4:
+                score += 3
+
+        # Match user profile if present
+        if buyer_context.get("has_sensitive_skin") and p.is_hypoallergenic:
+            score += 2
+        user_climate = (buyer_context.get("preferred_climate") or "").lower()
+        if user_climate and user_climate != "all" and (user_climate in p_climates or "all" in p_climates):
+            score += 2
+
+        item = {
             "id": p.id,
             "brand": p.brand,
             "name": p.name,
+            "category": p.category.name if p.category else "Uncategorized",
             "in_stock": p.in_stock,
-            "description": p.description,
             "price_amount": p.price_amount,
             "currency_symbol": p.currency_symbol,
             "gsm": p.gsm,
@@ -79,115 +109,163 @@ def get_products_context(db: Session) -> str:
             "is_hypoallergenic": p.is_hypoallergenic,
             "texture_smoothness": p.texture_smoothness,
             "oeko_tex_certified": p.oeko_tex_certified,
-            "recommended_climate": p.recommended_climate or []
-        })
-    return json.dumps(context, indent=2)
+            "recommended_climate": p.recommended_climate or [],
+            "description": p.description,
+            "_score": score,
+        }
+        scored_products.append(item)
 
-# Configuration toggles
-# Set to False to disable fallback logic entirely (e.g., in production/deployment).
-# It will also auto-disable if DEPLOYMENT_ENV is 'production' or PRODUCTION is 'true'.
-FALLBACK_ENABLED = True
+    # Sort so most pertinent records are first in context
+    scored_products.sort(key=lambda x: x["_score"], reverse=True)
 
-def fallback_ai_response(db: Session, message: str) -> dict:
-    products = db.query(models.Product).all()
-    message_lower = message.lower()
+    # Clean out internal score before serialization
+    for p in scored_products:
+        del p["_score"]
 
-    recommended_products = []
-    response_parts = []
+    return scored_products, buyer_context
 
-    for p in products:
-        match_score = 0
-        if p.name.lower() in message_lower or p.brand.lower() in message_lower:
-            match_score += 3
+def _extract_json_metadata(text: str) -> Tuple[str, List[str], Optional[Dict[str, Any]]]:
+    """Extract metadata JSON block from Gemini output and clean prose response."""
+    recommended_products: List[str] = []
+    suggested_filters: Optional[Dict[str, Any]] = None
 
-        climates = p.recommended_climate or []
-        for c in climates:
-            if c.lower() in message_lower:
-                match_score += 2
+    # Look for ```json ... ``` block
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if json_match:
+        try:
+            data = json.loads(json_match.group(1))
+            if isinstance(data.get("recommended_products"), list):
+                recommended_products = [str(pid) for pid in data["recommended_products"]]
+            if isinstance(data.get("suggested_filters"), dict):
+                suggested_filters = data["suggested_filters"]
+            # Remove the json block from prose
+            text = text[:json_match.start()].strip() + "\n" + text[json_match.end():].strip()
+            text = text.strip()
+        except Exception:
+            pass
 
-        if p.is_hypoallergenic and any(k in message_lower for k in ["hypoallergenic", "sensitive", "rash", "allergy", "skin"]):
-            match_score += 2
+    return text, recommended_products, suggested_filters
 
-        if p.breathability_rating and p.breathability_rating >= 4 and any(k in message_lower for k in ["breathable", "heat", "hot", "summer"]):
-            match_score += 1
 
-        if match_score > 0:
-            recommended_products.append(p)
-
-    if recommended_products:
-        response_parts.append("Based on your request, here are the most relevant textile products from our catalog:")
-        for p in recommended_products[:3]:
-            desc_snippet = p.description[:100] + "..." if len(p.description) > 100 else p.description
-            response_parts.append(f"- **{p.brand} {p.name}** (ID: {p.id}): {desc_snippet} (Price: {p.currency_symbol}{p.price_amount})")
-        response_parts.append("\nLet me know if you would like more details about these options!")
-        rec_ids = [p.id for p in recommended_products[:3]]
-    else:
-        response_parts.append("I am the Ankh B2B Textile Shopping Assistant. I couldn't find a direct keyword match in our catalog for your query, but here are some popular products to get started:")
-        if products:
-            for p in products[:2]:
-                response_parts.append(f"- **{p.brand} {p.name}** (ID: {p.id}) - {p.description[:80]}...")
-            rec_ids = [p.id for p in products[:2]]
-        else:
-            rec_ids = []
-
-    return {
-        "response": "\n".join(response_parts),
-        "recommended_products": rec_ids
-    }
-
-def generate_ai_response(db: Session, message: str, chat_history: list) -> dict:
-    # Checked before the try below, deliberately: the except clause falls back to
-    # the keyword scorer, which would mask a disabled assistant as a working one.
-    if not ai_enabled():
+def generate_ai_response(
+    db: Session,
+    message: str,
+    chat_history: list,
+    user: Optional[models.User] = None,
+) -> dict:
+    """Generate textile recommendations using Gemini and RAG database context."""
+    api_key = get_gemini_api_key()
+    if not ai_enabled() or not api_key:
         raise AIDisabledError(
-            "The AI assistant is disabled in this deployment. Set ANKH_AI_ENABLED=true "
-            "and install backend/requirements-ai.txt to turn it on."
+            "The AI assistant is disabled or GEMINI_API_KEY is not configured. "
+            "Please add GEMINI_API_KEY to your environment variables."
         )
 
-    is_prod = os.getenv("DEPLOYMENT_ENV") == "production" or os.getenv("PRODUCTION") == "true" or os.getenv("ENV") == "production"
+    # Retrieve pertinent database rows
+    products_context, buyer_context = retrieve_pertinent_context(db, message, user=user)
+    valid_product_ids = {p["id"] for p in products_context}
+
+    # Construct prompt with database ground truth
+    system_instruction = (
+        "You are the Ankh B2B Textile Shopping Assistant, an expert fabric consultant for the Ankh Marketplace.\n"
+        "Your role is to advise fashion designers, buyers, and manufacturers on the best textile fabrics for their needs.\n\n"
+        "### Ground-Truth Database Context\n"
+        "You must ONLY recommend fabrics that exist in the provided catalog context below. DO NOT invent fabric IDs or brands.\n"
+        f"Available Products in Database:\n{json.dumps(products_context, indent=2)}\n\n"
+    )
+    if buyer_context:
+        system_instruction += (
+            f"Authenticated Buyer Saved Preferences:\n{json.dumps(buyer_context, indent=2)}\n\n"
+        )
+    system_instruction += (
+        "### Instructions\n"
+        "1. Answer conversationally, clearly explaining why each fabric suits the user's needs by citing technical specs (GSM, breathability rating, hypoallergenic status, certifications, climate).\n"
+        "2. When recommending products, explicitly mention their exact 'id' (e.g. 'linen-1').\n"
+        "3. At the very end of your response, ALWAYS include a clean JSON block in exactly this format:\n"
+        "```json\n"
+        "{\n"
+        '  "recommended_products": ["exact_product_id_1", "exact_product_id_2"],\n'
+        '  "suggested_filters": {\n'
+        '    "category": "linen",\n'
+        '    "climate": "Tropical",\n'
+        '    "sensitive_skin": true,\n'
+        '    "search": "linen"\n'
+        "  }\n"
+        "}\n"
+        "```\n"
+        "Only include filters in 'suggested_filters' that directly match the recommendation (omit fields if not applicable)."
+    )
 
     try:
-        llm = get_llama()
-        catalog_context = get_products_context(db)
-        
-        system_prompt = (
-            "You are the Ankh B2B Textile Shopping Assistant. Use the provided product catalog to suggest relevant fabrics to the user.\n"
-            "Use your general knowledge about textiles, climates, and skin sensitivities to resolve their requests.\n"
-            "Explain your recommendations in simple layman terms. If a fabric has properties like hypoallergenic or high breathability, relate that to their needs (e.g. skin rashes, heat).\n\n"
-            "Product Catalog Context:\n"
-            f"{catalog_context}\n\n"
-            "Respond conversationally. If you recommend specific products, make sure to include their exact 'id' value as references in your response."
-        )
-        
-        messages = [{"role": "system", "content": system_prompt}]
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        model_name = get_gemini_model()
+
+        # Build contents from history + current message
+        contents = []
         for chat in chat_history:
-            messages.append({"role": chat.get("role", "user"), "content": chat.get("content", "")})
-        
-        messages.append({"role": "user", "content": message})
-        
-        # Format the prompt using chat template
-        response = llm.create_chat_completion(
-            messages=messages,
-            max_tokens=256,  # Reduced max tokens to speed up generation and save resources
-            temperature=0.7
+            role = "user" if chat.get("role") == "user" else "model"
+            content_text = chat.get("content", "")
+            if content_text:
+                contents.append(
+                    types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=content_text)]
+                    )
+                )
+
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=message)]
+            )
         )
-        
-        content = response["choices"][0]["message"]["content"]
-        
-        # Extract product IDs from context that were mentioned
-        mentioned_ids = []
-        products = db.query(models.Product).all()
-        for p in products:
-            if p.id in content:
-                mentioned_ids.append(p.id)
-                
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.6,
+            max_output_tokens=768,
+        )
+
+        response = client.models.generate_content(
+            model=model_name,
+            contents=contents,
+            config=config,
+        )
+
+        raw_text = response.text or ""
+        clean_response, recommended_ids, suggested_filters = _extract_json_metadata(raw_text)
+
+        # Also search response for any mentioned valid product IDs
+        for pid in valid_product_ids:
+            if pid in raw_text and pid not in recommended_ids:
+                recommended_ids.append(pid)
+
+        # Filter to only valid database IDs to prevent hallucinations
+        verified_ids = [pid for pid in recommended_ids if pid in valid_product_ids]
+
         return {
-            "response": content,
-            "recommended_products": mentioned_ids
+            "response": clean_response,
+            "recommended_products": verified_ids,
+            "suggested_filters": suggested_filters,
         }
+
+    except AIDisabledError:
+        raise
+    except AIRateLimitError:
+        raise
     except Exception as e:
-        if is_prod:
-            logger.error(f"AI chat LLM generation failed in production: {e}", exc_info=True)
-            raise
-        logger.warning(f"AI chat LLM generation failed, using fallback scorer: {e}")
-        return fallback_ai_response(db, message)
+        err_msg = str(e)
+        logger.error(f"Gemini API error during AI chat generation: {err_msg}", exc_info=True)
+        # Check for rate limit / quota exhaustion
+        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Quota exceeded" in err_msg:
+            raise AIRateLimitError(
+                "Gemini AI rate limit or quota exceeded. Please wait a moment and try again."
+            )
+        if "API_KEY_INVALID" in err_msg or "invalid api key" in err_msg.lower():
+            raise AIDisabledError(
+                "The configured GEMINI_API_KEY is invalid. Please check your API key."
+            )
+        raise RuntimeError(f"Gemini generation error: {err_msg}")

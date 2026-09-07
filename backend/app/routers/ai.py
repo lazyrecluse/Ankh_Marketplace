@@ -1,22 +1,30 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import ai_helper, schemas
+from .. import ai_helper, models, schemas, security
 from ..database import get_db
 
 router = APIRouter(prefix="/api/ai", tags=["AI Assistant"])
 
 
 @router.post("/chat", response_model=schemas.AIChatResponse)
-def ai_chat(chat_data: schemas.AIChatRequest, db: Session = Depends(get_db)):
+def ai_chat(
+    chat_data: schemas.AIChatRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(security.get_optional_current_user),
+):
     try:
         return ai_helper.generate_ai_response(
             db=db,
             message=chat_data.message,
-            chat_history=[msg.model_dump() for msg in chat_data.chat_history]
+            chat_history=[msg.model_dump() for msg in chat_data.chat_history],
+            user=current_user,
         )
     except ai_helper.AIDisabledError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except ai_helper.AIRateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
     except HTTPException:
         # Without this, the clause below would relabel any deliberate 4xx/503
         # raised upstream as a 500 — HTTPException is itself an Exception.

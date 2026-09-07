@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useHistory } from 'react-router-dom';
 import './AIAssistant.scss';
 import { sendChatMessage } from '../../Api/ai';
+import { buildProductQuery } from '../../Utils/productQuery';
 
 export default function AIAssistant() {
+    const history = useHistory();
     const [isOpen, setIsOpen] = useState(false);
     const [message, setMessage] = useState('');
     const [chatHistory, setChatHistory] = useState([
@@ -20,6 +23,17 @@ export default function AIAssistant() {
         scrollToBottom();
     }, [chatHistory, isLoading]);
 
+    const handleApplyFilters = (filters) => {
+        if (!filters) return;
+        const query = buildProductQuery({
+            climate: filters.climate || '',
+            sensitive_skin: Boolean(filters.sensitive_skin),
+            search: filters.search || (filters.category ? filters.category : ''),
+        });
+        setIsOpen(false);
+        history.push(`/products${query}`);
+    };
+
     const handleSend = async (e) => {
         if (e) e.preventDefault();
         if (!message.trim() || isLoading) return;
@@ -35,12 +49,24 @@ export default function AIAssistant() {
                 userMessage,
                 updatedHistory.slice(1, -1) // exclude intro and latest user message
             );
-            setChatHistory(prev => [...prev, { role: 'assistant', content: data.response, recommended: data.recommended_products }]);
+            setChatHistory(prev => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: data.response,
+                    recommended: data.recommended_products,
+                    filters: data.suggested_filters,
+                }
+            ]);
         } catch (error) {
             console.error('AI chat failed:', error);
-            const content = error.status
+            const content = error.detail || (error.status === 429
+                ? 'The AI assistant is temporarily busy (rate limit reached). Please try again shortly.'
+                : error.status === 503
+                ? 'The AI assistant is currently offline. Please configure GEMINI_API_KEY.'
+                : error.status
                 ? 'Sorry, I encountered an issue processing your query.'
-                : 'Failed to connect to AI server. Please make sure the backend is running.';
+                : 'Failed to connect to AI server. Please make sure the backend is running.');
             setChatHistory(prev => [...prev, { role: 'assistant', content }]);
         } finally {
             setIsLoading(false);
@@ -63,7 +89,7 @@ export default function AIAssistant() {
                 <div className="ai_chat_panel">
                     <div className="ai_panel_header">
                         <h3>Ankh Shopping Assistant</h3>
-                        <p>Locally powered by Qwen2.5</p>
+                        <p>Powered by Google Gemini</p>
                     </div>
 
                     <div className="ai_messages_container">
@@ -78,16 +104,32 @@ export default function AIAssistant() {
                                             <p className="rec_title">Suggested Products:</p>
                                             <div className="rec_chips">
                                                 {chat.recommended.map((prodId, rIdx) => (
-                                                    <a 
+                                                    <button
                                                         key={rIdx} 
-                                                        href={`/products/${prodId}`}
+                                                        type="button"
                                                         className="rec_chip_link"
-                                                        onClick={() => setIsOpen(false)}
+                                                        onClick={() => {
+                                                            setIsOpen(false);
+                                                            history.push(`/products/${prodId}`);
+                                                        }}
                                                     >
                                                         🔍 {prodId}
-                                                    </a>
+                                                    </button>
                                                 ))}
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {/* Action button to hand off to catalog filters */}
+                                    {chat.filters && (chat.filters.category || chat.filters.climate || chat.filters.sensitive_skin || chat.filters.search) && (
+                                        <div className="ai_filter_action">
+                                            <button
+                                                type="button"
+                                                className="filter_catalog_btn"
+                                                onClick={() => handleApplyFilters(chat.filters)}
+                                            >
+                                                🔍 Browse matching fabrics in Catalog
+                                            </button>
                                         </div>
                                     )}
                                 </div>

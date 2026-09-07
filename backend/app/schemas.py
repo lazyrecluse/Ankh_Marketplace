@@ -171,6 +171,13 @@ class AIChatRequest(BaseModel):
     message: str
     chat_history: List[AIChatMessage] = []
 
+class SuggestedFilters(BaseModel):
+    category: Optional[str] = None
+    climate: Optional[str] = None
+    sensitive_skin: Optional[bool] = None
+    search: Optional[str] = None
+
 class AIChatResponse(BaseModel):
     response: str
-    recommended_products: List[str]
+    recommended_products: List[str] = []
+    suggested_filters: Optional[SuggestedFilters] = None

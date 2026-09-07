@@ -148,6 +148,7 @@
                             gap: 6px;
 
                             .rec_chip_link {
+                                font-family: inherit;
                                 font-size: 11.5px;
                                 font-weight: 600;
                                 color: #1D1F22;
@@ -158,6 +159,7 @@
                                 text-decoration: none;
                                 display: inline-flex;
                                 align-items: center;
+                                cursor: pointer;
                                 transition: all 0.2s ease;
 
                                 &:hover {
@@ -165,6 +167,31 @@
                                     color: var(--primaryColor, #5ECE7B);
                                     background-color: rgba(#5ECE7B, 0.05);
                                 }
+                            }
+                        }
+                    }
+
+                    .ai_filter_action {
+                        margin-top: 10px;
+
+                        .filter_catalog_btn {
+                            font-family: inherit;
+                            font-size: 11.5px;
+                            font-weight: 600;
+                            background-color: #1D1F22;
+                            color: white;
+                            border: none;
+                            padding: 6px 12px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                            transition: background-color 0.2s ease, transform 0.15s ease;
+
+                            &:hover {
+                                background-color: var(--primaryColor, #5ECE7B);
+                                transform: translateY(-1px);
                             }
                         }
                     }

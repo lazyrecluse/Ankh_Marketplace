@@ -22,11 +22,8 @@ python-jose[cryptography]
 python-multipart
 email-validator
 
-# NOTE: llama-cpp-python lives in requirements-ai.txt, not here. It is only
-# needed when ANKH_AI_ENABLED is on, may compile from source when no wheel
-# matches, and pulls a ~1.1 GB model on first request — none of which belongs
-# in a deployment build. Install it locally with:
-#   cd backend && VIRTUAL_ENV=$PWD/.venv uv pip install -r requirements-ai.txt
+# Google Gemini AI Assistant (RAG)
+google-genai==2.22.0
 
 # Test suite. Run from the repo root: the suites import backend.app.main.
 # fastapi.testclient requires httpx.
