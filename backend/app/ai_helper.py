@@ -10,7 +10,7 @@ from . import models
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 
 
 class AIDisabledError(RuntimeError):
