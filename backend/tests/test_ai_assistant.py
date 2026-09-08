@@ -114,3 +114,17 @@ def test_generate_ai_response_with_gemini_mock(mock_getenv):
     finally:
         db.close()
 
+
+@patch("os.getenv")
+def test_env_sanitization_strips_newlines(mock_getenv):
+    def fake_getenv(key, default=None):
+        if key == "GEMINI_API_KEY":
+            return "  my-secret-key\n"
+        if key == "GEMINI_MODEL":
+            return "gemini-2.5-flash\n"
+        return default
+    mock_getenv.side_effect = fake_getenv
+
+    assert ai_helper.get_gemini_api_key() == "my-secret-key"
+    assert ai_helper.get_gemini_model() == "gemini-2.5-flash"
+

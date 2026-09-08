@@ -24,11 +24,13 @@ class AIRateLimitError(RuntimeError):
 
 
 def get_gemini_api_key() -> Optional[str]:
-    return os.getenv("GEMINI_API_KEY")
+    raw = os.getenv("GEMINI_API_KEY")
+    return raw.strip() if raw and raw.strip() else None
 
 
 def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+    raw = os.getenv("GEMINI_MODEL")
+    return raw.strip() if raw and raw.strip() else DEFAULT_MODEL
 
 
 def ai_enabled() -> bool:
