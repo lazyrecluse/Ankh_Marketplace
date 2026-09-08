@@ -1,37 +1,73 @@
-// Collapsed, the search bar is just the icon button; the input grows out of it
-// on click. Width is animated rather than toggling display so the expansion
-// matches the easing the currency switcher and mini-cart already use.
+// Backdrop that covers and blurs the main page below the AppBar
+.searchbar_backdrop {
+    position: fixed;
+    top: 80px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 80px);
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 44;
+    animation: searchBackdropFadeIn 0.2s ease-out;
+}
+
+@keyframes searchBackdropFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.searchbar_wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
 .searchbar {
     display: flex;
     align-items: center;
     position: relative;
-    height: 34px;
+    height: 38px;
     margin-right: 18px;
+    z-index: 46;
+
+    .searchbar_input_row {
+        display: flex;
+        align-items: center;
+        height: 38px;
+        background-color: #f7f7f7;
+        border: 1px solid #e0e0e0;
+        border-radius: 20px;
+        padding: 0 4px;
+        transition: width 300ms cubic-bezier(0.075, 0.82, 0.165, 1),
+                    background-color 0.2s ease,
+                    box-shadow 0.2s ease,
+                    border-color 0.2s ease;
+    }
 
     .searchbar_input {
         width: 0;
         opacity: 0;
         padding: 0;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        height: 34px;
+        border: none;
+        height: 100%;
         font-family: Raleway, 'sans-serif';
         font-size: 14px;
         color: var(--black);
         outline: none;
-        background-color: #f7f7f7;
+        background: transparent;
         transition: width 300ms cubic-bezier(0.075, 0.82, 0.165, 1),
-                    opacity 200ms ease-in-out,
-                    padding 300ms cubic-bezier(0.075, 0.82, 0.165, 1);
+                    opacity 200ms ease-in-out;
 
-        // The input is not reachable by keyboard while collapsed (tabIndex=-1
-        // in the component), so this only hides it visually.
         &::placeholder {
             color: #8d8f9a;
+            font-size: 13px;
         }
 
-        // Chrome/Safari draw their own clear affordance on type=search, which
-        // collides with the icon button.
         &::-webkit-search-decoration,
         &::-webkit-search-cancel-button {
             -webkit-appearance: none;
@@ -42,17 +78,19 @@
     .searchbar_btn {
         background: none;
         border: none;
-        padding: 0 4px;
+        padding: 0 8px;
         margin: 0;
         cursor: pointer;
         outline: none;
         display: flex;
         align-items: center;
+        justify-content: center;
         height: 100%;
+        color: #555;
 
         img {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             display: block;
         }
 
@@ -61,15 +99,294 @@
         }
     }
 
-    &.searchbar_open {
-        .searchbar_input {
-            width: 210px;
-            opacity: 1;
-            padding: 0 10px;
-            border-color: #e0e0e0;
+    .searchbar_clear_term_btn {
+        background: none;
+        border: none;
+        font-size: 13px;
+        color: #999;
+        cursor: pointer;
+        padding: 0 6px;
+        line-height: 1;
 
-            &:focus {
-                border-color: var(--primaryColor);
+        &:hover {
+            color: #333;
+        }
+    }
+
+    // 3-lines filter widget button
+    .searchbar_filter_toggle_btn {
+        background: none;
+        border: none;
+        padding: 6px 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        color: #555;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        margin: 0 2px;
+
+        svg {
+            display: block;
+            transition: transform 0.2s ease;
+        }
+
+        &:hover {
+            color: var(--primaryColor);
+            background-color: rgba(#5ECE7B, 0.1);
+        }
+
+        &.active {
+            color: white;
+            background-color: var(--primaryColor);
+        }
+
+        .searchbar_filter_badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background-color: #e53935;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+    }
+
+    .searchbar_submit_btn {
+        background-color: var(--primaryColor);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 13px;
+        margin-right: 2px;
+        transition: transform 0.15s ease, background-color 0.2s ease;
+
+        &:hover {
+            background-color: darken(#5ECE7B, 8%);
+            transform: scale(1.05);
+        }
+    }
+
+    // Open/Expanded state
+    &.searchbar_open {
+        .searchbar_input_row {
+            width: 440px;
+            background-color: white;
+            border-color: var(--primaryColor);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .searchbar_input {
+            width: 100%;
+            opacity: 1;
+            padding: 0 6px;
+        }
+    }
+
+    // Floating card beneath the expanded input
+    .searchbar_dropdown_card {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        width: 440px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+        border: 1px solid #eaeaea;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        z-index: 55;
+        animation: searchDropdownSlide 0.2s cubic-bezier(0.075, 0.82, 0.165, 1);
+
+        @keyframes searchDropdownSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .searchbar_section_header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+
+            .searchbar_section_title {
+                font-family: Raleway, 'sans-serif';
+                font-size: 11.5px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #888;
+            }
+
+            .searchbar_text_btn {
+                background: none;
+                border: none;
+                font-family: Raleway, 'sans-serif';
+                font-size: 11px;
+                font-weight: 600;
+                color: #888;
+                cursor: pointer;
+                padding: 0;
+
+                &:hover {
+                    color: var(--primaryColor);
+                    text-decoration: underline;
+                }
+            }
+        }
+
+        // Recent search history chips
+        .searchbar_history_section {
+            .searchbar_history_chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+
+                .searchbar_history_chip {
+                    font-family: Raleway, 'sans-serif';
+                    font-size: 12px;
+                    font-weight: 500;
+                    background-color: #f5f5f5;
+                    color: #333;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 16px;
+                    padding: 5px 10px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+
+                    .chip_clock {
+                        font-size: 11px;
+                        opacity: 0.6;
+                    }
+
+                    &:hover {
+                        border-color: var(--primaryColor);
+                        color: var(--primaryColor);
+                        background-color: rgba(#5ECE7B, 0.08);
+                    }
+                }
+            }
+        }
+
+        // Filters drawer
+        .searchbar_filters_drawer {
+            border-top: 1px solid #f0f0f0;
+            padding-top: 12px;
+
+            .searchbar_filter_grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 10px;
+
+                .searchbar_filter_field {
+                    display: flex;
+                    flex-direction: column;
+
+                    label {
+                        font-family: Raleway, 'sans-serif';
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: #666;
+                        margin-bottom: 4px;
+                    }
+
+                    input,
+                    select {
+                        height: 32px;
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        padding: 0 8px;
+                        font-family: Raleway, 'sans-serif';
+                        font-size: 12.5px;
+                        color: #222;
+                        background-color: white;
+                        outline: none;
+
+                        &:focus {
+                            border-color: var(--primaryColor);
+                        }
+                    }
+                }
+            }
+
+            .searchbar_filter_checks {
+                display: flex;
+                gap: 16px;
+                margin-top: 6px;
+
+                .searchbar_check_item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    cursor: pointer;
+                    font-family: Raleway, 'sans-serif';
+                    font-size: 12px;
+                    color: #444;
+
+                    input[type="checkbox"] {
+                        accent-color: var(--primaryColor);
+                        cursor: pointer;
+                    }
+                }
+            }
+        }
+
+        .searchbar_actions_row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 12px;
+            margin-top: 4px;
+
+            .searchbar_hint {
+                font-size: 11px;
+                color: #aaa;
+            }
+
+            .searchbar_apply_btn {
+                font-family: Raleway, 'sans-serif';
+                font-size: 12.5px;
+                font-weight: 600;
+                background-color: var(--primaryColor);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 7px 14px;
+                cursor: pointer;
+                transition: background-color 0.2s ease, transform 0.1s ease;
+
+                &:hover {
+                    background-color: darken(#5ECE7B, 8%);
+                    transform: translateY(-1px);
+                }
             }
         }
     }
@@ -77,19 +394,28 @@
 
 @media (max-width: 720px) {
     .searchbar {
-        margin-right: 10px;
+        margin-right: 8px;
 
-        // A 210px input does not fit next to the currency and cart controls on
-        // a phone, so the expanded box drops under the AppBar and spans it.
-        &.searchbar_open .searchbar_input {
-            position: fixed;
-            top: 60px;
-            left: 10px;
-            right: 10px;
-            width: auto;
-            z-index: 60;
-            background-color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        &.searchbar_open {
+            .searchbar_input_row {
+                width: calc(100vw - 32px);
+                position: fixed;
+                top: 20px;
+                left: 16px;
+                right: 16px;
+                z-index: 60;
+            }
+
+            .searchbar_dropdown_card {
+                position: fixed;
+                top: 70px;
+                left: 16px;
+                right: 16px;
+                width: calc(100vw - 32px);
+                max-height: 80vh;
+                overflow-y: auto;
+                z-index: 60;
+            }
         }
     }
 }

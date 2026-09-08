@@ -46,35 +46,41 @@ class AppBar extends Component {
     }
 
     render() {
+        const currencySymbol = this.props.AllCurrencies?.length > 0
+            ? this.props.AllCurrencies[this.props.CurrentCurrency]?.symbol || '$'
+            : '$';
+
         return (
             <div className='appbar_main_max_w'>
                 <div className='appbar_main'>
-                    <span className='a_m_cat' onClick={this.handleCloseAll}>
-                        {this.props.AllCategories?.length > 0 &&
-                             this.props.AllCategories?.map((category, i) =>
-                                <span
-                                    key={i}
-                                    className='a_m_cat_nl'
-                                    id={i === this.props.CurrentCategory ? 'a_m_cat_nl' : ''}
-                                    onClick={() => {
-                                        this.props.setCurrentCategory(i);
-                                        if (this.props.location?.pathname !== "/products") {
-                                            this.props.history?.push(`/products`);
-                                        }
-                                    }}
-                                >
-                                    <p>{category.toUpperCase()}</p>
-                                </span>
-                            )}
-                    </span>
-                    <div className='a_m_img' onClick={this.handleCloseAll}>
-                        <img
-                            src={Logo}
-                            alt='ScandiWeb_Logo'
-                        />
+                    <div className='a_m_left_section'>
+                        <div className='a_m_img' onClick={this.handleCloseAll}>
+                            <img
+                                src={Logo}
+                                alt='Ankh_Logo'
+                            />
+                        </div>
+                        <span className='a_m_cat' onClick={this.handleCloseAll}>
+                            {this.props.AllCategories?.length > 0 &&
+                                 this.props.AllCategories?.map((category, i) =>
+                                    <span
+                                        key={i}
+                                        className='a_m_cat_nl'
+                                        id={i === this.props.CurrentCategory ? 'a_m_cat_nl' : ''}
+                                        onClick={() => {
+                                            this.props.setCurrentCategory(i);
+                                            if (this.props.location?.pathname !== "/products") {
+                                                this.props.history?.push(`/products`);
+                                            }
+                                        }}
+                                    >
+                                        <p>{category.toUpperCase()}</p>
+                                    </span>
+                                )}
+                        </span>
                     </div>
                     <span className='a_m_cur_cart' onClick={this.handleCloseAll}>
-                        <SearchBar onBeforeOpen={this.handleCloseAll} />
+                        <SearchBar onBeforeOpen={this.handleCloseAll} currencySymbol={currencySymbol} />
                         <span
                             className="a_m_c_c_cur"
                             onClick={() => this.props.setOpenCurrSwitcher(!this.props.openCurrSwitcher)}
