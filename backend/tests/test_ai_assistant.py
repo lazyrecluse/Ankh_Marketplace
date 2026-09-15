@@ -118,13 +118,70 @@ def test_generate_ai_response_with_gemini_mock(mock_getenv):
 @patch("os.getenv")
 def test_env_sanitization_strips_newlines(mock_getenv):
     def fake_getenv(key, default=None):
+        if key == "GROQ_API_KEY":
+            return "  my-groq-key\n"
+        if key == "GROQ_MODEL":
+            return "llama-3.3-70b-versatile\n"
         if key == "GEMINI_API_KEY":
             return "  my-secret-key\n"
         if key == "GEMINI_MODEL":
-            return "gemini-2.5-flash\n"
+            return "gemini-3.6-flash\n"
         return default
     mock_getenv.side_effect = fake_getenv
 
+    assert ai_helper.get_groq_api_key() == "my-groq-key"
+    assert ai_helper.get_groq_model() == "llama-3.3-70b-versatile"
     assert ai_helper.get_gemini_api_key() == "my-secret-key"
-    assert ai_helper.get_gemini_model() == "gemini-2.5-flash"
+    assert ai_helper.get_gemini_model() == "gemini-3.6-flash"
+
+
+@patch("backend.app.ai_helper.call_groq_api")
+@patch("os.getenv")
+def test_generate_ai_response_with_groq_mock(mock_getenv, mock_groq):
+    def fake_getenv(key, default=None):
+        if key == "GROQ_API_KEY":
+            return "fake-groq-key"
+        if key == "ANKH_AI_ENABLED":
+            return "true"
+        return default
+    mock_getenv.side_effect = fake_getenv
+
+    mock_groq.return_value = (
+        "Groq recommends Belgian Linen (id: linen-belgian-1) for hot weather.\n\n"
+        "```json\n"
+        '{\n  "recommended_products": ["linen-belgian-1"],\n'
+        '  "suggested_filters": {"category": "linen", "climate": "Tropical"}\n}\n'
+        "```"
+    )
+
+    db = SessionLocal()
+    try:
+        result = ai_helper.generate_ai_response(
+            db=db,
+            message="Recommend something for hot weather",
+            chat_history=[]
+        )
+        assert "Groq recommends" in result["response"]
+        assert "linen-belgian-1" in result["recommended_products"]
+        assert result["suggested_filters"]["category"] == "linen"
+        mock_groq.assert_called_once()
+    finally:
+        db.close()
+
+
+def test_generate_ai_response_offline_heuristic_fallback():
+    """Verify local development works with 100% uptime without any API keys."""
+    db = SessionLocal()
+    try:
+        # Greeting test
+        greet_res = ai_helper.generate_ai_response(db, "hello", [])
+        assert "Welcome to the Ankh Marketplace Textile Assistant" in greet_res["response"]
+
+        # Product recommendation test
+        spec_res = ai_helper.generate_ai_response(db, "I need breathable linen for hot tropical climate", [])
+        assert "top fabric recommendations" in spec_res["response"]
+        assert len(spec_res["recommended_products"]) > 0
+        assert spec_res["suggested_filters"]["category"] == "linen"
+    finally:
+        db.close()
 

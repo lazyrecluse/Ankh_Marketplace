@@ -2,6 +2,10 @@
   max-width: 1440px;
   margin: 0 auto;
   padding: 100px 30px 40px 30px;
+
+  @media (max-width: 768px) {
+    padding: 75px 16px 30px 16px;
+  }
 }
 
 .dashboard-loading {
@@ -36,12 +40,32 @@
   border-bottom: 1px solid #e6e6eb;
   padding-bottom: 25px;
 
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+
+    .header-actions {
+      width: 100%;
+
+      .btn-logout {
+        width: 100%;
+      }
+    }
+  }
+
   h1 {
     font-family: 'Inter', sans-serif;
     font-weight: 700;
     color: #1d1f22;
     margin: 0 0 6px 0;
     font-size: 32px;
+
+    @media (max-width: 768px) {
+      font-size: 24px;
+    }
   }
 
   .welcome {
@@ -107,6 +131,11 @@
   margin-bottom: 30px;
   box-sizing: border-box;
 
+  @media (max-width: 600px) {
+    padding: 18px 14px;
+    margin-bottom: 20px;
+  }
+
   h3 {
     margin: 0 0 20px 0;
     font-size: 18px;
@@ -120,6 +149,55 @@
     height: 1px;
     background-color: #e6e6eb;
     margin: 20px 0;
+  }
+}
+
+.form-group {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #1d1f22;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"],
+  input[type="file"],
+  select,
+  textarea {
+    padding: 12px 16px;
+    border: 1px solid #c4c5cc;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background-color: #ffffff;
+    width: 100%;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: #5ece7b;
+      box-shadow: 0 0 0 3px rgba(94, 206, 123, 0.15);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.onboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  @media (max-width: 580px) {
+    grid-template-columns: 1fr;
+    gap: 0px;
   }
 }
 
@@ -467,6 +545,10 @@
   align-items: center;
   z-index: 1000;
   padding: 20px;
+
+  @media (max-width: 600px) {
+    padding: 10px;
+  }
 }
 
 .modal-content {
@@ -479,6 +561,11 @@
   padding: 40px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    padding: 20px 14px;
+    max-height: 94vh;
+  }
 
   h2 {
     margin-top: 0;
@@ -530,6 +617,10 @@
       display: flex;
       gap: 12px;
 
+      @media (max-width: 600px) {
+        flex-direction: column;
+      }
+
       .search-input {
         flex: 1;
         padding: 12px 16px;
@@ -565,6 +656,25 @@
       display: flex;
       flex-wrap: wrap;
       gap: 20px;
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+
+        .filter-group {
+          width: 100%;
+
+          select, .price-input {
+            width: 100%;
+            min-width: 100%;
+          }
+        }
+
+        .btn-clear-filters {
+          width: 100%;
+        }
+      }
       align-items: flex-end;
       padding-top: 10px;
       border-top: 1px solid #f6f6f9;

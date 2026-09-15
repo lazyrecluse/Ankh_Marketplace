@@ -1,6 +1,8 @@
 .minicart_main {
     background-color: var(--white);
     width: 325px;
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
     max-height: 677px;
     padding: 16px;
     z-index: 100;

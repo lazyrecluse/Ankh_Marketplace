@@ -106,7 +106,7 @@ class AppBar extends Component {
                                 alt='cart'
                             />
                         </span>
-                        <span className="a_m_c_c_auth" style={{ marginLeft: "20px", display: "inline-flex", alignItems: "center", position: "relative" }}>
+                        <span className="a_m_c_c_auth">
                             {session.isLoggedIn() ? (
                                 <div className="a_m_profile_dropdown_container">
                                     <button
@@ -138,12 +138,7 @@ class AppBar extends Component {
                                                 className="profile_logout_btn"
                                                 onClick={() => {
                                                     this.closeProfileDropdown();
-                                                    // Clear only the auth keys, then reset Redux
-                                                    // explicitly. localStorage.clear() used to also
-                                                    // wipe the redux-persist store, which is why
-                                                    // this needed a full page reload to recover.
                                                     session.clearSession();
-                                                    this.props.resetStore();
                                                     this.props.history?.push('/login');
                                                 }}
                                             >
@@ -154,11 +149,8 @@ class AppBar extends Component {
                                 </div>
                             ) : (
                                 <button 
+                                    className="auth_signin_btn"
                                     onClick={() => this.props.history?.push('/login')}
-                                    style={{
-                                        background: 'none', border: '1px solid #1d1f22', padding: '6px 12px', borderRadius: '4px',
-                                        fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', outline: 'none'
-                                    }}
                                 >
                                     Sign In
                                 </button>

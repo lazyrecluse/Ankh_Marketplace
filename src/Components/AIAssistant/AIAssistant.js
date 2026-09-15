@@ -63,7 +63,7 @@ export default function AIAssistant() {
             const content = error.detail || (error.status === 429
                 ? 'The AI assistant is temporarily busy (rate limit reached). Please try again shortly.'
                 : error.status === 503
-                ? 'The AI assistant is currently offline. Please configure GEMINI_API_KEY.'
+                ? 'The AI assistant is currently offline.'
                 : error.status
                 ? 'Sorry, I encountered an issue processing your query.'
                 : 'Failed to connect to AI server. Please make sure the backend is running.');
@@ -89,7 +89,7 @@ export default function AIAssistant() {
                 <div className="ai_chat_panel">
                     <div className="ai_panel_header">
                         <h3>Ankh Shopping Assistant</h3>
-                        <p>Powered by Google Gemini</p>
+                        <p>Powered by Ankh AI (Groq / Llama 3)</p>
                     </div>
 
                     <div className="ai_messages_container">

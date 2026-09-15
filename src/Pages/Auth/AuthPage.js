@@ -3,6 +3,8 @@ import { useHistory, useLocation, Link } from 'react-router-dom';
 import './AuthPage.scss';
 import * as authApi from '../../Api/auth';
 import * as session from '../../Auth/session';
+import store from '../../Configs/ReduxStore';
+import { loadCartFromStorage, saveCartToStorage, mergeCarts, clearGuestCart } from '../../Utils/cartStorage';
 
 export default function AuthPage({ buyerMode = false }) {
     const history = useHistory();
@@ -28,6 +30,14 @@ export default function AuthPage({ buyerMode = false }) {
                 // Fetch profile to check if onboarding is completed
                 const meData = await authApi.getMe();
                 session.setUser(meData);
+
+                // Migrate any items added as guest to this user account
+                const guestCart = loadCartFromStorage(null);
+                const userSavedCart = loadCartFromStorage(meData.id);
+                const mergedCart = mergeCarts(userSavedCart, guestCart);
+                clearGuestCart();
+                saveCartToStorage(meData.id, mergedCart);
+                store.dispatch({ type: 'SET_USER_CARTS', payload: mergedCart });
 
                 // Route based on role and onboarding state
                 if (data.role === 'buyer') {

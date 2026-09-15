@@ -244,25 +244,34 @@
         padding-top: 60px;
 
         .cp_m_h1 {
-            font-size: 30px;
-            margin-top: 25px;
-            padding-left: 20px;
+            font-size: 26px;
+            margin-top: 20px;
+            padding-left: 16px;
         }
 
         .cp_m_layout .cp_m_h1 {
             padding-left: 0;
             margin-top: 0;
+            font-size: 24px;
+        }
+
+        .cp_m_layout {
+            padding: 0 16px;
         }
 
         .cp_m_product_w {
-            padding: 0px 0px;
-            grid-template-columns: repeat(auto-fit, minmax(92vw, 1fr));
-            margin-top: 60px;
+            padding: 0;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+            width: 100%;
         }
 
         .cp_m_layout .cp_m_product_w {
-            grid-template-columns: 1fr;
-            margin-top: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+            width: 100%;
         }
 
         .cp_m_loading {

@@ -296,14 +296,20 @@
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .ai_assistant_root {
         right: 16px;
         bottom: 16px;
 
         .ai_chat_panel {
-            width: calc(100vw - 32px);
-            height: 400px;
+            position: fixed;
+            bottom: 82px;
+            left: 12px;
+            right: 12px;
+            width: auto;
+            max-width: calc(100vw - 24px);
+            height: min(480px, 72vh);
+            border-radius: 12px;
         }
     }
 }

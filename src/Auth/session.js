@@ -45,8 +45,21 @@ export const setUser = (user) => {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
 };
 
-/** Remove only the auth keys, leaving the persisted Redux store intact. */
+let onSessionClearCallback = null;
+
+export const registerSessionClearCallback = (cb) => {
+    onSessionClearCallback = cb;
+};
+
+/** Remove auth keys and notify subscribers (e.g. to clear active Redux cart). */
 export const clearSession = () => {
+    if (onSessionClearCallback) {
+        try {
+            onSessionClearCallback();
+        } catch (e) {
+            console.error('Error in onSessionClearCallback:', e);
+        }
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(USER_KEY);
