@@ -18,25 +18,28 @@
         max-height: 80px;
         display: flex;
         flex-direction: row;
-        justify-content: center;
-        position: fixed;
-        top: 0;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 48px;
+        box-sizing: border-box;
+        position: relative;
         background-color: white;
         z-index: 50;
 
         .a_m_left_section {
-            position: absolute;
-            left: 60px;
-            height: 56px;
-            margin-top: 24px;
+            position: relative;
+            height: 100%;
             display: flex;
             align-items: center;
+            flex: 1;
+            min-width: 0;
+            margin-right: 32px; // Guarantees clearance between navbar categories and utility cluster
 
             .a_m_img {
                 cursor: pointer;
                 display: flex;
                 align-items: center;
-                margin-right: 48px;
+                margin-right: 36px;
                 flex-shrink: 0;
 
                 img {
@@ -50,6 +53,12 @@
                 height: 100%;
                 display: flex;
                 align-items: center;
+                overflow-x: auto;
+                scrollbar-width: none;
+
+                &::-webkit-scrollbar {
+                    display: none;
+                }
 
                 .a_m_cat_nl {
                     cursor: pointer;
@@ -78,21 +87,19 @@
         }
 
         .a_m_cur_cart {
-            position: absolute;
-            right: 100px;
-            width: auto;
-            height: 40px;
-            margin-top: 23px;
+            position: relative;
+            height: 100%;
             display: flex;
-            justify-content: flex-end;
             align-items: center;
+            justify-content: flex-end;
+            flex-shrink: 0;
+            gap: 18px;
 
             .a_m_c_c_cur {
                 width: 38px;
                 height: 29px;
-                margin-top: 5.5px;
                 display: flex;
-                margin-right: 22px;
+                align-items: center;
                 cursor: pointer;
                 position: relative;
 
@@ -118,9 +125,10 @@
             }
 
             .a_m_c_c_cart {
-                margin-top: 10px;
                 cursor: pointer;
                 position: relative;
+                display: flex;
+                align-items: center;
 
                 p {
                     position: absolute;
@@ -135,7 +143,8 @@
                     color: white;
                     display: flex;
                     justify-content: center;
-                    font-size: 14px;
+                    align-items: center;
+                    font-size: 13px;
                     font-family: Raleway, 'sans-serif';
                     font-weight: 700;
                 }
@@ -143,6 +152,7 @@
                 img {
                     width: 20px;
                     height: 20px;
+                    display: block;
                 }
             }
 
@@ -150,7 +160,7 @@
                 display: inline-flex;
                 align-items: center;
                 position: relative;
-                margin-left: 16px;
+                margin-left: 14px; // Gap (18px) + Margin (14px) = 32px from cart icon. Overhang is 10px -> leaves 22px clear space
 
                 .auth_signin_btn {
                     background: none;
@@ -265,19 +275,21 @@
 
         .a_m_cur_sw {
             position: absolute;
-            right: 78px;
+            right: 135px;
             top: -400px;
             transition: all 350ms cubic-bezier(0.075, 0.82, 0.165, 1);
+            z-index: 90;
         }
         #a_m_cur_sw {
-            top: 65px;
+            top: 70px;
         }
 
         .a_m_minicart {
             position: absolute;
-            right: 72px;
+            right: 48px;
             top: -700px;
             transition: all 380ms cubic-bezier(0.075, 0.82, 0.165, 1);
+            z-index: 95;
         }
         #a_m_minicart {
             top: 80px;
@@ -297,40 +309,39 @@
             height: 60px;
             min-height: 60px;
             max-height: 60px;
+            padding: 0 12px;
+            justify-content: space-between;
 
             .a_m_left_section {
-                left: 8px;
-                height: 56px;
-                margin-top: 2px;
-                max-width: calc(100vw - 190px);
-                overflow-x: auto;
-                scrollbar-width: none;
-                flex-shrink: 1;
-
-                &::-webkit-scrollbar {
-                    display: none;
-                }
+                height: 100%;
+                margin-top: 0;
+                margin-right: 12px;
+                flex: 1;
+                min-width: 0;
 
                 .a_m_img {
-                    margin-right: 12px;
+                    margin-right: 10px;
                     padding-top: 0;
 
                     img {
-                        width: 26px;
-                        height: 26px;
+                        width: 24px;
+                        height: 24px;
                     }
                 }
 
                 .a_m_cat {
-                    height: 56px;
+                    height: 100%;
                     margin-top: 0;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                    white-space: nowrap;
 
                     .a_m_cat_nl {
                         p {
-                            line-height: 50px;
-                            font-size: 12px;
-                            margin-left: 4px;
-                            margin-right: 4px;
+                            line-height: 58px;
+                            font-size: 13px;
+                            margin-left: 6px;
+                            margin-right: 6px;
                         }
                     }
                     #a_m_cat_nl {
@@ -340,26 +351,27 @@
             }
 
             .a_m_cur_cart {
-                right: 8px;
-                width: auto;
-                margin-top: 10px;
+                height: 100%;
+                margin-top: 0;
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                flex-shrink: 0;
+                gap: 10px;
 
                 .a_m_c_c_cur {
-                    margin-right: 4px;
-                    width: 28px;
-                    margin-top: 3px;
+                    margin-right: 0;
+                    width: 26px;
+                    margin-top: 0;
 
                     p {
-                        font-size: 15px;
-                        width: 20px;
+                        font-size: 14px;
+                        width: 18px;
                     }
                 }
 
                 .a_m_c_c_cart {
-                    margin-top: 4px;
+                    margin-top: 0;
+                    position: relative;
 
                     img {
                         width: 18px;
@@ -367,7 +379,7 @@
                     }
 
                     p {
-                        font-size: 11px;
+                        font-size: 10px;
                         width: 16px;
                         height: 16px;
                         min-width: 16px;
@@ -378,17 +390,19 @@
                 }
 
                 .a_m_c_c_auth {
-                    margin-left: 4px;
+                    margin-left: 10px; // Gap (10px) + Margin (10px) = 20px from cart icon. Overhang is 8px -> leaves 12px clear space on mobile!
 
                     .profile_toggle_btn,
                     .auth_signin_btn {
-                        padding: 4px 8px;
+                        padding: 5px 10px;
                         font-size: 11px;
+                        border-radius: 4px;
+                        letter-spacing: 0.3px;
                     }
 
                     .profile_dropdown_menu {
                         right: 0;
-                        top: 32px;
+                        top: 36px;
                     }
                 }
             }

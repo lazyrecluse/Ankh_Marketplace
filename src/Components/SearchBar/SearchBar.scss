@@ -32,7 +32,7 @@
     align-items: center;
     position: relative;
     height: 38px;
-    margin-right: 18px;
+    margin-right: 0;
     z-index: 46;
 
     .searchbar_input_row {
@@ -394,7 +394,7 @@
 
 @media (max-width: 720px) {
     .searchbar {
-        margin-right: 8px;
+        margin-right: 0;
 
         &.searchbar_open {
             .searchbar_input_row {
