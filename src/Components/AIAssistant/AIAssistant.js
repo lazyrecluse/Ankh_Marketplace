@@ -3,6 +3,7 @@ import { useHistory } from 'react-router-dom';
 import './AIAssistant.scss';
 import { sendChatMessage } from '../../Api/ai';
 import { buildProductQuery } from '../../Utils/productQuery';
+import RichChatMessage from './RichChatMessage';
 
 export default function AIAssistant() {
     const history = useHistory();
@@ -32,6 +33,11 @@ export default function AIAssistant() {
         });
         setIsOpen(false);
         history.push(`/products${query}`);
+    };
+
+    const handleNavigate = (path) => {
+        setIsOpen(false);
+        history.push(path);
     };
 
     const handleSend = async (e) => {
@@ -96,7 +102,7 @@ export default function AIAssistant() {
                         {chatHistory.map((chat, idx) => (
                             <div key={idx} className={`ai_message_wrapper ${chat.role}`}>
                                 <div className="ai_message_bubble">
-                                    <p>{chat.content}</p>
+                                    <RichChatMessage content={chat.content} role={chat.role} onNavigate={handleNavigate} />
                                     
                                     {/* Render references/recommendation links */}
                                     {chat.recommended && chat.recommended.length > 0 && (
